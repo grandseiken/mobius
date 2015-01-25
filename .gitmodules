@@ -1,0 +1,6 @@
+[submodule "dependencies/protobuf"]
+	path = dependencies/protobuf
+	url = https://github.com/google/protobuf.git
+[submodule "dependencies/sfml"]
+	path = dependencies/sfml
+	url = https://github.com/LaurentGomila/sfml.git
