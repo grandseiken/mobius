@@ -66,6 +66,9 @@ namespace {
   }
 }
 
+#define GLEW_CHECK(value) \
+  if (!value) std::cerr << "Warning: " #value " not supported\n";
+
 #define SHADER(name, type) \
   create_shader( \
     #name, type, std::string(\
@@ -75,24 +78,31 @@ namespace {
 #include "../gen/shaders/main.vertex.glsl.h"
 #include "../gen/shaders/main.fragment.glsl.h"
 
-Renderer::Renderer()
-: _program{0}
-, _vao{0}
-, _vbo{0}
+Renderer::Renderer(uint32_t width, uint32_t height)
+: _width{width}
+, _height{height}
 {
-  glewInit();
-  if (!GLEW_VERSION_3_2) {
-    std::cerr << "Warning: OpenGL 3.2 not available\n";
+  auto glew_ok = glewInit();
+  if (glew_ok != GLEW_OK) {
+    std::cerr << "Couldn't initialize GLEW: " <<
+        glewGetErrorString(glew_ok) << "\n";
   }
+
+  GLEW_CHECK(GLEW_VERSION_3_3);
+  GLEW_CHECK(GLEW_ARB_shading_language_100);
+  GLEW_CHECK(GLEW_ARB_shader_objects);
+  GLEW_CHECK(GLEW_ARB_vertex_shader);
+  GLEW_CHECK(GLEW_ARB_fragment_shader);
+  GLEW_CHECK(GLEW_EXT_framebuffer_object);
 
   _program = create_program("main", {
       SHADER(main_vertex, GL_VERTEX_SHADER),
       SHADER(main_fragment, GL_FRAGMENT_SHADER)});
 
   const float vertices[] = {
-    .75f, .75f, 0.f, 1.f,
-    .75f, -.75f, 0.f, 1.f,
-    -.75f, .75f, 0.f, 1.f,
+    0.f, .6f, 0.f, 1.f,
+    -.6f, -.6f, 0.f, 1.f,
+    .6f, -.6f, 0.f, 1.f,
   };
 
   glGenBuffers(1, &_vbo);
@@ -102,19 +112,52 @@ Renderer::Renderer()
 
   glGenVertexArrays(1, &_vao);
   glBindVertexArray(_vao);
+
+  resize(width, height);
 }
 
-void Renderer::render(uint32_t width, uint32_t height)
+void Renderer::resize(uint32_t width, uint32_t height)
 {
-  glViewport(0, 0, width, height);
+  _width = width;
+  _height = height;
+
+  if (_fbo) {
+    glDeleteFramebuffers(1, &_fbo);
+  }
+  if (_fbt) {
+    glDeleteTextures(1, &_fbt);
+  }
+
+  glGenTextures(1, &_fbt);
+  glBindTexture(GL_TEXTURE_2D_MULTISAMPLE, _fbt);
+  glTexImage2DMultisample(
+      GL_TEXTURE_2D_MULTISAMPLE, 8, GL_RGBA8, _width, _height, false);
+
+  glGenFramebuffers(1, &_fbo);
+  glBindFramebuffer(GL_FRAMEBUFFER, _fbo);
+  glFramebufferTexture2D(
+      GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D_MULTISAMPLE, _fbt, 0);
+}
+
+void Renderer::render()
+{
+  glViewport(0, 0, _width, _height);
   glClearColor(0, 0, 0, 0);
   glClear(GL_COLOR_BUFFER_BIT);
 
   glUseProgram(_program);
+  glBindFramebuffer(GL_DRAW_FRAMEBUFFER, _fbo);
+  glEnable(GL_MULTISAMPLE);
   glBindBuffer(GL_ARRAY_BUFFER, _vbo);
   glEnableVertexAttribArray(0);
   glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, 0, 0);
   glDrawArrays(GL_TRIANGLES, 0, 3);
   glDisableVertexAttribArray(0);
   glUseProgram(0);
+
+  glBindFramebuffer(GL_READ_FRAMEBUFFER, _fbo);
+  glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
+  glDrawBuffer(GL_BACK);
+  glBlitFramebuffer(0, 0, _width, _height, 0, 0, _width, _height,
+                    GL_COLOR_BUFFER_BIT, GL_NEAREST);
 }

@@ -5,13 +5,20 @@
 
 class Renderer {
 public:
-  Renderer();
-  void render(uint32_t width, uint32_t height);
+  Renderer(uint32_t width, uint32_t height);
+  void resize(uint32_t width, uint32_t height);
+  void render();
 
 private:
-  uint32_t _program;
-  uint32_t _vao;
-  uint32_t _vbo;
+  uint32_t _width;
+  uint32_t _height;
+
+  uint32_t _fbo = 0;
+  uint32_t _fbt = 0;
+
+  uint32_t _program = 0;
+  uint32_t _vao = 0;
+  uint32_t _vbo = 0;
 };
 
 #endif
