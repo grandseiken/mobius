@@ -7,10 +7,6 @@ OUTDIR_BIN=$(OUTDIR)
 SRCDIR=./src
 BINARIES=$(OUTDIR_BIN)/mobius
 
-# Libraries.
-CC_OBJECT_FILE_PREREQS=\
-  $(DEPENDENCIES)/sfml.build
-
 # Compilers and interpreters.
 export PROTOC=$(PROTOBUF_DIR)/src/protoc
 
@@ -23,18 +19,24 @@ LFLAGS=\
   $(SFML_DIR)/lib/libsfml-graphics-s.a \
   $(SFML_DIR)/lib/libsfml-window-s.a \
   $(SFML_DIR)/lib/libsfml-system-s.a \
-  -lGL -lopenal -lsndfile \
+  -lGLEW -lGL -lopenal -lsndfile \
   -lX11-xcb -lX11 -lxcb-image -lxcb-randr -lxcb -ludev -lpthread
 
 # File listings.
 CC_SOURCE_FILES=$(wildcard $(SRCDIR)/*.cc)
 PROTO_FILES=$(wildcard $(SRCDIR)/*.proto)
+SHADER_FILES=$(wildcard $(SRCDIR)/shaders/*.glsl)
 PROTO_OUTPUTS=$(subst $(SRCDIR)/,$(GENDIR)/,$(PROTO_FILES:.proto=.pb.cc))
+SHADER_OUTPUTS=$(subst $(SRCDIR)/,$(GENDIR)/,$(SHADER_FILES:.glsl=.glsl.h))
 CC_GENERATED_FILES=$(PROTO_OUTPUTS)
 
 H_FILES=$(wildcard $(SRCDIR)/*.h)
 MISC_FILES=Makefile dependencies/Makefile
 ALL_FILES=$(CC_SOURCE_FILES) $(H_FILES) $(MISC_FILES)
+
+# Libraries.
+CC_OBJECT_FILE_PREREQS=\
+  $(DEPENDENCIES)/sfml.build $(PROTO_OUTPUTS) $(SHADER_OUTPUTS)
 
 DISABLE_CC_DEPENDENCY_ANALYSIS=true
 ifneq ('$(MAKECMDGOALS)', 'add')
@@ -75,3 +77,10 @@ $(GENDIR)/%.pb.cc: \
 	$(MKDIR)
 	@echo Compiling ./$<
 	$(PROTOC) --proto_path=$(SRCDIR) --cpp_out=$(GENDIR) ./$<
+
+# Shader files.
+$(GENDIR)/%.glsl.h: \
+  $(SRCDIR)/%.glsl
+	$(MKDIR)
+	@echo Compiling ./$<
+	xxd -i $< > $@

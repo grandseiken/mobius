@@ -1,4 +1,5 @@
 #include <SFML/Window.hpp>
+#include "render.h"
 
 int main()
 {
@@ -10,8 +11,9 @@ int main()
   settings.minorVersion = 2;
   settings.attributeFlags = sf::ContextSettings::Core;
 
-  sf::Window window(sf::VideoMode::getDesktopMode(), "MOBIUS", sf::Style::None);
+  sf::Window window{sf::VideoMode::getDesktopMode(), "MOBIUS", sf::Style::None};
   window.setVerticalSyncEnabled(true);
+  Renderer renderer;
 
   while (window.isOpen()) {
     sf::Event event;
@@ -20,6 +22,9 @@ int main()
         window.close();
       }
     }
+
+    renderer.render(window.getSize().x, window.getSize().y);
+    window.display();
   }
   return 0;
 }
