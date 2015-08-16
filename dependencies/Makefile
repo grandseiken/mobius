@@ -33,5 +33,5 @@ $(DEPENDENCIES)/sfml.build:
 .PHONY: clean_dependencies
 clean_dependencies:
 	rm -f $(DEPENDENCIES)/*.build $(DEPENDENCIES)/.build
-	-cd $(PROTOBUF_DIR) && [ -f ./Makefile ] && $(MAKE) clean
-	-cd $(SFML_DIR) && [ -f ./Makefile ] && $(MAKE) clean
+	rm -rf $(PROTOBUF_DIR) $(SFML_DIR)
+	git submodule update
