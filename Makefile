@@ -23,7 +23,8 @@ LFLAGS=\
   $(SFML_DIR)/lib/libsfml-graphics-s.a \
   $(SFML_DIR)/lib/libsfml-window-s.a \
   $(SFML_DIR)/lib/libsfml-system-s.a \
-  -lX11 -lGL -lopenal -lsndfile -lXrandr
+  -lGL -lopenal -lsndfile \
+  -lX11-xcb -lX11 -lxcb-image -lxcb-randr -lxcb -ludev -lpthread
 
 # File listings.
 CC_SOURCE_FILES=$(wildcard $(SRCDIR)/*.cc)
