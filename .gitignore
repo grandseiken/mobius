@@ -1,0 +1,6 @@
+dependencies/protobuf
+dependencies/sfml
+dependencies/*.build
+gen
+Debug
+Release
