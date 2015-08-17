@@ -173,8 +173,12 @@ Renderer::~Renderer()
 
 void Renderer::resize(uint32_t width, uint32_t height)
 {
+  if (_width == width && _height == height) {
+    return;
+  }
   _width = width;
   _height = height;
+  _perspective.dirty = true;
 
   if (_fbo) {
     glDeleteFramebuffers(1, &_fbo);
@@ -205,29 +209,24 @@ void Renderer::resize(uint32_t width, uint32_t height)
 
 void Renderer::camera(float frustum_scale, float z_near, float z_far)
 {
-  _frustum_scale = frustum_scale;
-  _z_near = z_near;
-  _z_far = z_far;
+  _camera.frustum_scale = frustum_scale;
+  _camera.z_near = z_near;
+  _camera.z_far = z_far;
+  _perspective.dirty = true;
 }
 
-void Renderer::render()
+void Renderer::translate(float x, float y, float z)
 {
-  // Assumes:
-  // + camera is at the origin
-  // + viewing plane is axis-aligned with centre (0, 0, -1)
-  // + viewing plane is [-1, 1] in Y axis and [-1, 1] multiplied by aspect
-  //   ratio in the X axis.
-  float sx = _frustum_scale * (float(_height) / _width);
-  float sy = _frustum_scale;
-  float sz = (_z_near + _z_far) / (_z_near - _z_far);
-  float tz = (2 * _z_near * _z_far) / (_z_near - _z_far);
+  _translate.x = x;
+  _translate.y = y;
+  _translate.z = z;
+  _transform.dirty = true;
+}
 
-  _perspective_matrix = {
-   sx,  0,  0,  0,
-    0, sy,  0,  0,
-    0,  0, sz, tz,
-    0,  0, -1,  0,
-  };
+void Renderer::render() const
+{
+  calculate_perspective_matrix();
+  calculate_transform_matrix();
 
   glViewport(0, 0, _width, _height);
   glEnable(GL_CULL_FACE);
@@ -242,7 +241,10 @@ void Renderer::render()
   glUseProgram(_program);
   glUniformMatrix4fv(
       glGetUniformLocation(_program, "perspective_matrix"),
-      1, GL_TRUE /* row-major */, _perspective_matrix.data());
+      1, GL_TRUE /* row-major */, _perspective.matrix.data());
+  glUniformMatrix4fv(
+      glGetUniformLocation(_program, "transform_matrix"),
+      1, GL_TRUE /* row-major */, _transform.matrix.data());
 
   glBindBuffer(GL_ARRAY_BUFFER, _vbo);
   glEnableVertexAttribArray(0);
@@ -257,4 +259,49 @@ void Renderer::render()
   glDrawBuffer(GL_BACK);
   glBlitFramebuffer(0, 0, _width, _height, 0, 0, _width, _height,
                     GL_COLOR_BUFFER_BIT, GL_NEAREST);
+}
+
+void Renderer::calculate_perspective_matrix() const
+{
+  if (!_perspective.dirty) {
+    return;
+  }
+  _perspective.dirty = false;
+
+  // Assumes:
+  // + camera is at the origin
+  // + viewing plane is axis-aligned with centre (0, 0, -1)
+  // + viewing plane is [-1, 1] in Y axis and [-1, 1] multiplied by aspect
+  //   ratio in the X axis.
+  float sx = _camera.frustum_scale * (float(_height) / _width);
+  float sy = _camera.frustum_scale;
+  float sz = (_camera.z_near + _camera.z_far) /
+      (_camera.z_near - _camera.z_far);
+  float tz = (2 * _camera.z_near * _camera.z_far) /
+      (_camera.z_near - _camera.z_far);
+
+  _perspective.matrix = {
+    sx,  0,  0,  0,
+     0, sy,  0,  0,
+     0,  0, sz, tz,
+     0,  0, -1,  0,
+  };
+}
+
+void Renderer::calculate_transform_matrix() const
+{
+  if (!_transform.dirty) {
+    return;
+  }
+  _transform.dirty = false;
+
+  float x = _translate.x;
+  float y = _translate.y;
+  float z = _translate.z;
+  _transform.matrix = {
+    1, 0, 0, x,
+    0, 1, 0, y,
+    0, 0, 1, z,
+    0, 0, 0, 1,
+  };
 }
