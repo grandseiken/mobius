@@ -17,6 +17,10 @@ private:
   uint32_t _width = 0;
   uint32_t _height = 0;
 
+  float _frustum_scale = 0;
+  float _z_near = 0;
+  float _z_far = 0;
+
   uint32_t _fbo = 0;
   uint32_t _fbt = 0;
 

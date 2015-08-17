@@ -205,24 +205,30 @@ void Renderer::resize(uint32_t width, uint32_t height)
 
 void Renderer::camera(float frustum_scale, float z_near, float z_far)
 {
-  // Assumes:
-  // + camera is at the origin
-  // + viewing plane is axis-aligned with centre (0, 0, -1) and dimensions
-  //   [-1, 1] in the X and Y axes.
-  float s = frustum_scale;
-  float zs = (z_near + z_far) / (z_near - z_far);
-  float zt = (2 * z_near * z_far) / (z_near - z_far);
-
-  _perspective_matrix = {
-    s,  0,  0,  0,
-    0,  s,  0,  0,
-    0,  0, zs, zt,
-    0,  0, -1,  0,
-  };
+  _frustum_scale = frustum_scale;
+  _z_near = z_near;
+  _z_far = z_far;
 }
 
 void Renderer::render()
 {
+  // Assumes:
+  // + camera is at the origin
+  // + viewing plane is axis-aligned with centre (0, 0, -1)
+  // + viewing plane is [-1, 1] in Y axis and [-1, 1] multiplied by aspect
+  //   ratio in the X axis.
+  float sx = _frustum_scale * (float(_height) / _width);
+  float sy = _frustum_scale;
+  float sz = (_z_near + _z_far) / (_z_near - _z_far);
+  float tz = (2 * _z_near * _z_far) / (_z_near - _z_far);
+
+  _perspective_matrix = {
+   sx,  0,  0,  0,
+    0, sy,  0,  0,
+    0,  0, sz, tz,
+    0,  0, -1,  0,
+  };
+
   glViewport(0, 0, _width, _height);
   glEnable(GL_CULL_FACE);
   glCullFace(GL_BACK);
