@@ -1,6 +1,7 @@
 #ifndef MOBIUS_RENDER_H
 #define MOBIUS_RENDER_H
 
+#include <array>
 #include <cstdint>
 
 class Renderer {
@@ -23,7 +24,7 @@ private:
   uint32_t _vao = 0;
   uint32_t _vbo = 0;
 
-  float _perspective_matrix[16] = {0};
+  std::array<float, 16> _perspective_matrix = {{0}};
 };
 
 #endif

@@ -209,11 +209,16 @@ void Renderer::camera(float frustum_scale, float z_near, float z_far)
   // + camera is at the origin
   // + viewing plane is axis-aligned with centre (0, 0, -1) and dimensions
   //   [-1, 1] in the X and Y axes.
-  _perspective_matrix[0] = frustum_scale;
-  _perspective_matrix[5] = frustum_scale;
-  _perspective_matrix[10] = (z_near + z_far) / (z_near - z_far);
-  _perspective_matrix[14] = (2 * z_near * z_far) / (z_near - z_far);
-  _perspective_matrix[11] = -1.f;
+  float s = frustum_scale;
+  float zs = (z_near + z_far) / (z_near - z_far);
+  float zt = (2 * z_near * z_far) / (z_near - z_far);
+
+  _perspective_matrix = {
+    s,  0,  0,  0,
+    0,  s,  0,  0,
+    0,  0, zs, zt,
+    0,  0, -1,  0,
+  };
 }
 
 void Renderer::render()
@@ -231,7 +236,7 @@ void Renderer::render()
   glUseProgram(_program);
   glUniformMatrix4fv(
       glGetUniformLocation(_program, "perspective_matrix"),
-      1, GL_FALSE, _perspective_matrix);
+      1, GL_TRUE /* row-major */, _perspective_matrix.data());
 
   glBindBuffer(GL_ARRAY_BUFFER, _vbo);
   glEnableVertexAttribArray(0);
