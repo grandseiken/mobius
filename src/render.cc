@@ -79,54 +79,30 @@ namespace {
 #include "../gen/shaders/main.vertex.glsl.h"
 #include "../gen/shaders/main.fragment.glsl.h"
 
-const float vertices[] = {
-   0.25f,  0.25f, 0.75f, 1.0f,
-  -0.25f,  0.25f, 0.75f, 1.0f,
-   0.25f, -0.25f, 0.75f, 1.0f,
+const float cube_vertices[] = {
+   1,  1,  1, 1,
+   1,  1, -1, 1,
+   1, -1,  1, 1,
+   1, -1, -1, 1,
+  -1,  1,  1, 1,
+  -1,  1, -1, 1,
+  -1, -1,  1, 1,
+  -1, -1, -1, 1,
+};
 
-   0.25f, -0.25f, 0.75f, 1.0f,
-  -0.25f,  0.25f, 0.75f, 1.0f,
-  -0.25f, -0.25f, 0.75f, 1.0f,
-
-   0.25f,  0.25f, -0.75f, 1.0f,
-   0.25f, -0.25f, -0.75f, 1.0f,
-  -0.25f,  0.25f, -0.75f, 1.0f,
-
-   0.25f, -0.25f, -0.75f, 1.0f,
-  -0.25f, -0.25f, -0.75f, 1.0f,
-  -0.25f,  0.25f, -0.75f, 1.0f,
-
-  -0.25f,  0.25f,  0.75f, 1.0f,
-  -0.25f, -0.25f, -0.75f, 1.0f,
-  -0.25f, -0.25f,  0.75f, 1.0f,
-
-  -0.25f,  0.25f,  0.75f, 1.0f,
-  -0.25f,  0.25f, -0.75f, 1.0f,
-  -0.25f, -0.25f, -0.75f, 1.0f,
-
-   0.25f,  0.25f,  0.75f, 1.0f,
-   0.25f, -0.25f,  0.75f, 1.0f,
-   0.25f, -0.25f, -0.75f, 1.0f,
-
-   0.25f,  0.25f,  0.75f, 1.0f,
-   0.25f, -0.25f, -0.75f, 1.0f,
-   0.25f,  0.25f, -0.75f, 1.0f,
-
-   0.25f,  0.25f, -0.75f, 1.0f,
-  -0.25f,  0.25f,  0.75f, 1.0f,
-   0.25f,  0.25f,  0.75f, 1.0f,
-
-   0.25f,  0.25f, -0.75f, 1.0f,
-  -0.25f,  0.25f, -0.75f, 1.0f,
-  -0.25f,  0.25f,  0.75f, 1.0f,
-
-   0.25f, -0.25f, -0.75f, 1.0f,
-   0.25f, -0.25f,  0.75f, 1.0f,
-  -0.25f, -0.25f,  0.75f, 1.0f,
-
-   0.25f, -0.25f, -0.75f, 1.0f,
-  -0.25f, -0.25f,  0.75f, 1.0f,
-  -0.25f, -0.25f, -0.75f, 1.0f,
+const uint32_t cube_indices[] = {
+  0, 4, 2,
+  2, 4, 6,
+  1, 3, 5,
+  3, 7, 5,
+  4, 7, 6,
+  4, 5, 7,
+  0, 2, 3,
+  0, 3, 1,
+  1, 4, 0,
+  1, 5, 4,
+  3, 2, 6,
+  3, 6, 7,
 };
 
 Renderer::Renderer()
@@ -151,8 +127,14 @@ Renderer::Renderer()
 
   glGenBuffers(1, &_vbo);
   glBindBuffer(GL_ARRAY_BUFFER, _vbo);
-  glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
+  glBufferData(GL_ARRAY_BUFFER,
+               sizeof(cube_vertices), cube_vertices, GL_STATIC_DRAW);
   glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+  glGenBuffers(1, &_ibo);
+  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, _ibo);
+  glBufferData(GL_ELEMENT_ARRAY_BUFFER,
+               sizeof(cube_indices), cube_indices, GL_STATIC_DRAW);
 
   glGenVertexArrays(1, &_vao);
   glBindVertexArray(_vao);
@@ -223,6 +205,14 @@ void Renderer::translate(float x, float y, float z)
   _transform.dirty = true;
 }
 
+void Renderer::scale(float x, float y, float z)
+{
+  _scale.x = x;
+  _scale.y = y;
+  _scale.z = z;
+  _transform.dirty = true;
+}
+
 void Renderer::render() const
 {
   calculate_perspective_matrix();
@@ -246,9 +236,12 @@ void Renderer::render() const
       glGetUniformLocation(_program, "transform_matrix"),
       1, GL_TRUE /* row-major */, _transform.matrix.data());
 
-  glBindBuffer(GL_ARRAY_BUFFER, _vbo);
   glEnableVertexAttribArray(0);
+  glBindBuffer(GL_ARRAY_BUFFER, _vbo);
   glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, 0, 0);
+  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, _ibo);
+  glDrawElements(GL_TRIANGLES, sizeof(cube_indices) / sizeof(cube_indices[0]),
+                 GL_UNSIGNED_INT, 0);
   glDrawArrays(GL_TRIANGLES, 0, 3 * 12);
 
   glDisableVertexAttribArray(0);
@@ -298,10 +291,13 @@ void Renderer::calculate_transform_matrix() const
   float x = _translate.x;
   float y = _translate.y;
   float z = _translate.z;
+  float sx = _scale.x;
+  float sy = _scale.y;
+  float sz = _scale.z;
   _transform.matrix = {
-    1, 0, 0, x,
-    0, 1, 0, y,
-    0, 0, 1, z,
-    0, 0, 0, 1,
+    sx,  0,  0,  x,
+     0, sy,  0,  y,
+     0,  0, sz,  z,
+     0,  0,  0,  1,
   };
 }

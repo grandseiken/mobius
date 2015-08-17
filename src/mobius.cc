@@ -17,6 +17,7 @@ int main()
   renderer.resize(window.getSize().x, window.getSize().y);
   renderer.camera(1, .5f, 3);
   renderer.translate(.5f, .5f, -2);
+  renderer.scale(.25f, .25f, .75f);
 
   while (window.isOpen()) {
     sf::Event event;

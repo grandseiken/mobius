@@ -12,6 +12,7 @@ public:
   void resize(uint32_t width, uint32_t height);
   void camera(float frustum_scale, float z_near, float z_far);
   void translate(float x, float y, float z);
+  void scale(float x, float y, float z);
   void render() const;
 
 private:
@@ -27,6 +28,7 @@ private:
   uint32_t _program = 0;
   uint32_t _vao = 0;
   uint32_t _vbo = 0;
+  uint32_t _ibo = 0;
 
   struct {
     float frustum_scale = 0;
@@ -39,6 +41,12 @@ private:
     float y = 0;
     float z = 0;
   } _translate;
+
+  struct {
+    float x = 0;
+    float y = 0;
+    float z = 0;
+  } _scale;
 
   struct matrix {
     std::array<float, 16> matrix = {{0}};
