@@ -1,6 +1,9 @@
 #ifndef MOBIUS_RENDER_H
 #define MOBIUS_RENDER_H
 
+#include <glm/vec2.hpp>
+#include <glm/vec3.hpp>
+#include <glm/mat4x4.hpp>
 #include <array>
 #include <cstdint>
 
@@ -9,21 +12,16 @@ public:
   Renderer();
   ~Renderer();
 
-  void resize(uint32_t width, uint32_t height);
-  void camera(float frustum_scale, float z_near, float z_far);
-  void translate(float x, float y, float z);
-  void scale(float x, float y, float z);
+  void resize(const glm::ivec2& dimensions);
+  void perspective(float fov, float z_near, float z_far);
+  void world(const glm::mat4& world_transform);
 
   void clear() const;
-  void cube(float r, float g, float b) const;
+  void cube(const glm::vec3& colour) const;
   void render() const;
 
 private:
-  void calculate_perspective_matrix() const;
-  void calculate_transform_matrix() const;
-
-  uint32_t _width = 0;
-  uint32_t _height = 0;
+  void compute_transform() const;
 
   uint32_t _fbo = 0;
   uint32_t _fbt = 0;
@@ -34,31 +32,19 @@ private:
   uint32_t _vbo = 0;
   uint32_t _ibo = 0;
 
+  // For perspective (camera space to clip space) transform.
+  glm::ivec2 _dimensions;
   struct {
-    float frustum_scale = 0;
+    float fov = 0;
     float z_near = 0;
     float z_far = 0;
-  } _camera;
+  } _perspective;
 
-  struct {
-    float x = 0;
-    float y = 0;
-    float z = 0;
-  } _translate;
+  // For world (model space to world space) transform.
+  glm::mat4 _world_transform;
 
-  struct {
-    float x = 0;
-    float y = 0;
-    float z = 0;
-  } _scale;
-
-  struct matrix {
-    std::array<float, 16> matrix = {{0}};
-    bool dirty = false;
-  };
-
-  mutable matrix _perspective;
-  mutable matrix _transform;
+  mutable glm::mat4 _transform;
+  mutable bool _transform_dirty;
 };
 
 #endif

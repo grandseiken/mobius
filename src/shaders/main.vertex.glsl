@@ -1,16 +1,14 @@
 #version 330
-layout(location = 0) in vec4 position;
+layout(location = 0) in vec4 model;
 
-flat out vec4 out_colour;
+flat out vec3 vertex_colour;
 
-uniform vec4 colour;
-uniform mat4 perspective_matrix;
-uniform mat4 transform_matrix;
+uniform vec3 colour;
+uniform mat4 transform;
 
 void main()
 {
-  vec4 camera_space = transform_matrix * position;
-  vec4 clip_space = perspective_matrix * camera_space;
-  gl_Position = clip_space;
-  out_colour = colour;
+  vec4 clip = transform * model;
+  gl_Position = clip;
+  vertex_colour = colour;
 }

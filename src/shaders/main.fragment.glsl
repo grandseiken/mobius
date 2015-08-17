@@ -1,11 +1,11 @@
 #version 330
 
-flat in vec4 out_colour;
+flat in vec3 vertex_colour;
 
-out vec4 outputColor;
+out vec4 output_colour;
 
 void main()
 {
-  outputColor = out_colour;
+  output_colour = vec4(vertex_colour, 1);
 }
 

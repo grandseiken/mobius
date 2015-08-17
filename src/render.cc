@@ -1,4 +1,6 @@
 #include "render.h"
+#include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtc/type_ptr.hpp>
 #include <GL/glew.h>
 #include <iostream>
 #include <memory>
@@ -147,14 +149,10 @@ Renderer::~Renderer()
   glDeleteBuffers(1, &_ibo);
 }
 
-void Renderer::resize(uint32_t width, uint32_t height)
+void Renderer::resize(const glm::ivec2& dimensions)
 {
-  if (_width == width && _height == height) {
-    return;
-  }
-  _width = width;
-  _height = height;
-  _perspective.dirty = true;
+  _dimensions = dimensions;
+  _transform_dirty = true;
 
   if (_fbo) {
     glDeleteFramebuffers(1, &_fbo);
@@ -172,19 +170,22 @@ void Renderer::resize(uint32_t width, uint32_t height)
   if (samples > 1) {
     glBindTexture(target, _fbt);
     glTexImage2DMultisample(
-        GL_TEXTURE_2D_MULTISAMPLE, samples, GL_RGBA8, _width, _height, false);
+        GL_TEXTURE_2D_MULTISAMPLE, samples, GL_RGBA8,
+        _dimensions.x, _dimensions.y, false);
     glBindTexture(target, _fbd);
     glTexImage2DMultisample(
-        GL_TEXTURE_2D_MULTISAMPLE, samples,
-        GL_DEPTH_COMPONENT24, _width, _height, false);
+        GL_TEXTURE_2D_MULTISAMPLE, samples, GL_DEPTH_COMPONENT24,
+        _dimensions.x, _dimensions.y, false);
   } else {
     glBindTexture(target, _fbt);
     glTexImage2D(
-        GL_TEXTURE_2D, 0, GL_RGBA8, _width, _height, 0,
+        GL_TEXTURE_2D, 0, GL_RGBA8,
+        _dimensions.x, _dimensions.y, 0,
         GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
     glBindTexture(target, _fbd);
     glTexImage2D(
-        GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT24, _width, _height, 0,
+        GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT24,
+        _dimensions.x, _dimensions.y, 0,
         GL_DEPTH_COMPONENT, GL_UNSIGNED_BYTE, nullptr);
   }
   glBindFramebuffer(GL_FRAMEBUFFER, _fbo);
@@ -194,33 +195,23 @@ void Renderer::resize(uint32_t width, uint32_t height)
       GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, target, _fbd, 0);
 }
 
-void Renderer::camera(float frustum_scale, float z_near, float z_far)
+void Renderer::perspective(float fov, float z_near, float z_far)
 {
-  _camera.frustum_scale = frustum_scale;
-  _camera.z_near = z_near;
-  _camera.z_far = z_far;
-  _perspective.dirty = true;
+  _perspective.fov = fov;
+  _perspective.z_near = z_near;
+  _perspective.z_far = z_far;
+  _transform_dirty = true;
 }
 
-void Renderer::translate(float x, float y, float z)
+void Renderer::world(const glm::mat4& world_transform)
 {
-  _translate.x = x;
-  _translate.y = y;
-  _translate.z = z;
-  _transform.dirty = true;
-}
-
-void Renderer::scale(float x, float y, float z)
-{
-  _scale.x = x;
-  _scale.y = y;
-  _scale.z = z;
-  _transform.dirty = true;
+  _world_transform = world_transform;
+  _transform_dirty = true;
 }
 
 void Renderer::clear() const
 {
-  glViewport(0, 0, _width, _height);
+  glViewport(0, 0, _dimensions.x, _dimensions.y);
   glEnable(GL_CULL_FACE);
   glCullFace(GL_BACK);
   glFrontFace(GL_CCW);
@@ -236,21 +227,16 @@ void Renderer::clear() const
   glDepthRange(0, 1);
 }
 
-void Renderer::cube(float r, float g, float b) const
+void Renderer::cube(const glm::vec3& colour) const
 {
-  calculate_perspective_matrix();
-  calculate_transform_matrix();
+  compute_transform();
 
   glUseProgram(_program);
   glUniformMatrix4fv(
-      glGetUniformLocation(_program, "perspective_matrix"),
-      1, GL_TRUE /* row-major */, _perspective.matrix.data());
-  glUniformMatrix4fv(
-      glGetUniformLocation(_program, "transform_matrix"),
-      1, GL_TRUE /* row-major */, _transform.matrix.data());
-  glUniform4f(
-      glGetUniformLocation(_program, "colour"), r, g, b, 1);
-
+      glGetUniformLocation(_program, "transform"),
+      1, GL_FALSE, glm::value_ptr(_transform));
+  glUniform3fv(
+      glGetUniformLocation(_program, "colour"), 1, glm::value_ptr(colour));
 
   glEnableVertexAttribArray(0);
   glBindBuffer(GL_ARRAY_BUFFER, _vbo);
@@ -269,54 +255,21 @@ void Renderer::render() const
   glBindFramebuffer(GL_READ_FRAMEBUFFER, _fbo);
   glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
   glDrawBuffer(GL_BACK);
-  glBlitFramebuffer(0, 0, _width, _height, 0, 0, _width, _height,
+  glBlitFramebuffer(0, 0, _dimensions.x, _dimensions.y,
+                    0, 0, _dimensions.x, _dimensions.y,
                     GL_COLOR_BUFFER_BIT, GL_NEAREST);
 }
 
-void Renderer::calculate_perspective_matrix() const
+void Renderer::compute_transform() const
 {
-  if (!_perspective.dirty) {
+  if (!_transform_dirty) {
     return;
   }
-  _perspective.dirty = false;
+  _transform_dirty = false;
 
-  // Assumes:
-  // + camera is at the origin
-  // + viewing plane is axis-aligned with centre (0, 0, -1)
-  // + viewing plane is [-1, 1] in Y axis and [-1, 1] multiplied by aspect
-  //   ratio in the X axis.
-  float sx = _camera.frustum_scale * (float(_height) / _width);
-  float sy = _camera.frustum_scale;
-  float sz = (_camera.z_near + _camera.z_far) /
-      (_camera.z_near - _camera.z_far);
-  float tz = (2 * _camera.z_near * _camera.z_far) /
-      (_camera.z_near - _camera.z_far);
+  auto perspective_transform = glm::perspectiveRH(
+      _perspective.fov, (float)_dimensions.x / _dimensions.y,
+      _perspective.z_near, _perspective.z_far);
 
-  _perspective.matrix = {
-    sx,  0,  0,  0,
-     0, sy,  0,  0,
-     0,  0, sz, tz,
-     0,  0, -1,  0,
-  };
-}
-
-void Renderer::calculate_transform_matrix() const
-{
-  if (!_transform.dirty) {
-    return;
-  }
-  _transform.dirty = false;
-
-  float x = _translate.x;
-  float y = _translate.y;
-  float z = _translate.z;
-  float sx = _scale.x;
-  float sy = _scale.y;
-  float sz = _scale.z;
-  _transform.matrix = {
-    sx,  0,  0,  x,
-     0, sy,  0,  y,
-     0,  0, sz,  z,
-     0,  0,  0,  1,
-  };
+  _transform = perspective_transform * _world_transform;
 }
