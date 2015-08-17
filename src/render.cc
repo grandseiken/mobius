@@ -90,19 +90,13 @@ const float cube_vertices[] = {
   -1, -1, -1, 1,
 };
 
-const uint32_t cube_indices[] = {
-  0, 4, 2,
-  2, 4, 6,
-  1, 3, 5,
-  3, 7, 5,
-  4, 7, 6,
-  4, 5, 7,
-  0, 2, 3,
-  0, 3, 1,
-  1, 4, 0,
-  1, 5, 4,
-  3, 2, 6,
-  3, 6, 7,
+const GLushort cube_indices[] = {
+  0, 4, 2, 2, 4, 6,
+  1, 3, 5, 3, 7, 5,
+  4, 7, 6, 4, 5, 7,
+  0, 2, 3, 0, 3, 1,
+  1, 4, 0, 1, 5, 4,
+  3, 2, 6, 3, 6, 7,
 };
 
 Renderer::Renderer()
@@ -144,13 +138,13 @@ Renderer::~Renderer()
 {
   if (_fbo) {
     glDeleteFramebuffers(1, &_fbo);
-  }
-  if (_fbt) {
     glDeleteTextures(1, &_fbt);
+    glDeleteTextures(1, &_fbd);
   }
   glDeleteProgram(_program);
   glDeleteVertexArrays(1, &_vao);
   glDeleteBuffers(1, &_vbo);
+  glDeleteBuffers(1, &_ibo);
 }
 
 void Renderer::resize(uint32_t width, uint32_t height)
@@ -164,29 +158,40 @@ void Renderer::resize(uint32_t width, uint32_t height)
 
   if (_fbo) {
     glDeleteFramebuffers(1, &_fbo);
-  }
-  if (_fbt) {
     glDeleteTextures(1, &_fbt);
+    glDeleteTextures(1, &_fbd);
   }
   glGenTextures(1, &_fbt);
+  glGenTextures(1, &_fbd);
   glGenFramebuffers(1, &_fbo);
 
   auto samples = 0;
   glGetIntegerv(GL_MAX_SAMPLES, &samples);
 
   auto target = samples > 1 ? GL_TEXTURE_2D_MULTISAMPLE : GL_TEXTURE_2D;
-  glBindTexture(target, _fbt);
   if (samples > 1) {
+    glBindTexture(target, _fbt);
     glTexImage2DMultisample(
         GL_TEXTURE_2D_MULTISAMPLE, samples, GL_RGBA8, _width, _height, false);
+    glBindTexture(target, _fbd);
+    glTexImage2DMultisample(
+        GL_TEXTURE_2D_MULTISAMPLE, samples,
+        GL_DEPTH_COMPONENT24, _width, _height, false);
   } else {
+    glBindTexture(target, _fbt);
     glTexImage2D(
         GL_TEXTURE_2D, 0, GL_RGBA8, _width, _height, 0,
         GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+    glBindTexture(target, _fbd);
+    glTexImage2D(
+        GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT24, _width, _height, 0,
+        GL_DEPTH_COMPONENT, GL_UNSIGNED_BYTE, nullptr);
   }
   glBindFramebuffer(GL_FRAMEBUFFER, _fbo);
   glFramebufferTexture2D(
       GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, target, _fbt, 0);
+  glFramebufferTexture2D(
+      GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, target, _fbd, 0);
 }
 
 void Renderer::camera(float frustum_scale, float z_near, float z_far)
@@ -213,11 +218,8 @@ void Renderer::scale(float x, float y, float z)
   _transform.dirty = true;
 }
 
-void Renderer::render() const
+void Renderer::clear() const
 {
-  calculate_perspective_matrix();
-  calculate_transform_matrix();
-
   glViewport(0, 0, _width, _height);
   glEnable(GL_CULL_FACE);
   glCullFace(GL_BACK);
@@ -226,7 +228,18 @@ void Renderer::render() const
   glBindFramebuffer(GL_DRAW_FRAMEBUFFER, _fbo);
   glEnable(GL_MULTISAMPLE);
   glClearColor(0, 0, 0, 0);
-  glClear(GL_COLOR_BUFFER_BIT);
+  glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+  glEnable(GL_DEPTH_TEST);
+  glDepthMask(GL_TRUE);
+  glDepthFunc(GL_LEQUAL);
+  glDepthRange(0, 1);
+}
+
+void Renderer::cube(float r, float g, float b) const
+{
+  calculate_perspective_matrix();
+  calculate_transform_matrix();
 
   glUseProgram(_program);
   glUniformMatrix4fv(
@@ -235,18 +248,24 @@ void Renderer::render() const
   glUniformMatrix4fv(
       glGetUniformLocation(_program, "transform_matrix"),
       1, GL_TRUE /* row-major */, _transform.matrix.data());
+  glUniform4f(
+      glGetUniformLocation(_program, "colour"), r, g, b, 1);
+
 
   glEnableVertexAttribArray(0);
   glBindBuffer(GL_ARRAY_BUFFER, _vbo);
   glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, 0, 0);
   glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, _ibo);
   glDrawElements(GL_TRIANGLES, sizeof(cube_indices) / sizeof(cube_indices[0]),
-                 GL_UNSIGNED_INT, 0);
+                 GL_UNSIGNED_SHORT, 0);
   glDrawArrays(GL_TRIANGLES, 0, 3 * 12);
 
   glDisableVertexAttribArray(0);
   glUseProgram(0);
+}
 
+void Renderer::render() const
+{
   glBindFramebuffer(GL_READ_FRAMEBUFFER, _fbo);
   glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
   glDrawBuffer(GL_BACK);

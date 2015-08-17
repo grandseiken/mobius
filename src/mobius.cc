@@ -4,7 +4,7 @@
 int main()
 {
   sf::ContextSettings settings;
-  settings.depthBits = 24;
+  settings.depthBits = 0;
   settings.stencilBits = 8;
   settings.antialiasingLevel = 1;
   settings.majorVersion = 3;
@@ -16,8 +16,6 @@ int main()
   Renderer renderer;
   renderer.resize(window.getSize().x, window.getSize().y);
   renderer.camera(1, .5f, 3);
-  renderer.translate(.5f, .5f, -2);
-  renderer.scale(.25f, .25f, .75f);
 
   while (window.isOpen()) {
     sf::Event event;
@@ -29,6 +27,13 @@ int main()
       }
     }
 
+    renderer.clear();
+    renderer.translate(.5f, .5f, -2);
+    renderer.scale(.25f, .25f, .75f);
+    renderer.cube(0.6, 0.2, 0.2);
+    renderer.translate(.25f, .25f, -2.5);
+    renderer.scale(1, .25f, 1);
+    renderer.cube(0.2, 0.6, 0.2);
     renderer.render();
     window.display();
   }

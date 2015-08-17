@@ -13,6 +13,9 @@ public:
   void camera(float frustum_scale, float z_near, float z_far);
   void translate(float x, float y, float z);
   void scale(float x, float y, float z);
+
+  void clear() const;
+  void cube(float r, float g, float b) const;
   void render() const;
 
 private:
@@ -24,6 +27,7 @@ private:
 
   uint32_t _fbo = 0;
   uint32_t _fbt = 0;
+  uint32_t _fbd = 0;
 
   uint32_t _program = 0;
   uint32_t _vao = 0;
