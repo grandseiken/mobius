@@ -14,6 +14,8 @@ public:
 
   void resize(const glm::ivec2& dimensions);
   void perspective(float fov, float z_near, float z_far);
+  void camera(const glm::vec3& eye, const glm::vec3& target,
+              const glm::vec3& up);
   void world(const glm::mat4& world_transform);
 
   void clear() const;
@@ -39,6 +41,9 @@ private:
     float z_near = 0;
     float z_far = 0;
   } _perspective;
+
+  // For view (world space to camera space) transform.
+  glm::mat4 _view_transform;
 
   // For world (model space to world space) transform.
   glm::mat4 _world_transform;

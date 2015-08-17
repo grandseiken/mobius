@@ -203,6 +203,13 @@ void Renderer::perspective(float fov, float z_near, float z_far)
   _transform_dirty = true;
 }
 
+void Renderer::camera(const glm::vec3& eye, const glm::vec3& target,
+                      const glm::vec3& up)
+{
+  _view_transform = glm::lookAt(eye, target, up);
+  _transform_dirty = true;
+}
+
 void Renderer::world(const glm::mat4& world_transform)
 {
   _world_transform = world_transform;
@@ -271,5 +278,5 @@ void Renderer::compute_transform() const
       _perspective.fov, (float)_dimensions.x / _dimensions.y,
       _perspective.z_near, _perspective.z_far);
 
-  _transform = perspective_transform * _world_transform;
+  _transform = perspective_transform * _view_transform * _world_transform;
 }
