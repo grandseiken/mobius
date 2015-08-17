@@ -79,9 +79,57 @@ namespace {
 #include "../gen/shaders/main.vertex.glsl.h"
 #include "../gen/shaders/main.fragment.glsl.h"
 
-Renderer::Renderer(uint32_t width, uint32_t height)
-: _width{width}
-, _height{height}
+const float vertices[] = {
+   0.25f,  0.25f, 0.75f, 1.0f,
+  -0.25f,  0.25f, 0.75f, 1.0f,
+   0.25f, -0.25f, 0.75f, 1.0f,
+
+   0.25f, -0.25f, 0.75f, 1.0f,
+  -0.25f,  0.25f, 0.75f, 1.0f,
+  -0.25f, -0.25f, 0.75f, 1.0f,
+
+   0.25f,  0.25f, -0.75f, 1.0f,
+   0.25f, -0.25f, -0.75f, 1.0f,
+  -0.25f,  0.25f, -0.75f, 1.0f,
+
+   0.25f, -0.25f, -0.75f, 1.0f,
+  -0.25f, -0.25f, -0.75f, 1.0f,
+  -0.25f,  0.25f, -0.75f, 1.0f,
+
+  -0.25f,  0.25f,  0.75f, 1.0f,
+  -0.25f, -0.25f, -0.75f, 1.0f,
+  -0.25f, -0.25f,  0.75f, 1.0f,
+
+  -0.25f,  0.25f,  0.75f, 1.0f,
+  -0.25f,  0.25f, -0.75f, 1.0f,
+  -0.25f, -0.25f, -0.75f, 1.0f,
+
+   0.25f,  0.25f,  0.75f, 1.0f,
+   0.25f, -0.25f,  0.75f, 1.0f,
+   0.25f, -0.25f, -0.75f, 1.0f,
+
+   0.25f,  0.25f,  0.75f, 1.0f,
+   0.25f, -0.25f, -0.75f, 1.0f,
+   0.25f,  0.25f, -0.75f, 1.0f,
+
+   0.25f,  0.25f, -0.75f, 1.0f,
+  -0.25f,  0.25f,  0.75f, 1.0f,
+   0.25f,  0.25f,  0.75f, 1.0f,
+
+   0.25f,  0.25f, -0.75f, 1.0f,
+  -0.25f,  0.25f, -0.75f, 1.0f,
+  -0.25f,  0.25f,  0.75f, 1.0f,
+
+   0.25f, -0.25f, -0.75f, 1.0f,
+   0.25f, -0.25f,  0.75f, 1.0f,
+  -0.25f, -0.25f,  0.75f, 1.0f,
+
+   0.25f, -0.25f, -0.75f, 1.0f,
+  -0.25f, -0.25f,  0.75f, 1.0f,
+  -0.25f, -0.25f, -0.75f, 1.0f,
+};
+
+Renderer::Renderer()
 {
   auto glew_ok = glewInit();
   if (glew_ok != GLEW_OK) {
@@ -101,12 +149,6 @@ Renderer::Renderer(uint32_t width, uint32_t height)
       SHADER(main_vertex, GL_VERTEX_SHADER),
       SHADER(main_fragment, GL_FRAGMENT_SHADER)});
 
-  const float vertices[] = {
-    0.f, .6f, 0.f, 1.f,
-    -.6f, -.6f, 0.f, 1.f,
-    .6f, -.6f, 0.f, 1.f,
-  };
-
   glGenBuffers(1, &_vbo);
   glBindBuffer(GL_ARRAY_BUFFER, _vbo);
   glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
@@ -114,8 +156,6 @@ Renderer::Renderer(uint32_t width, uint32_t height)
 
   glGenVertexArrays(1, &_vao);
   glBindVertexArray(_vao);
-
-  resize(width, height);
 }
 
 Renderer::~Renderer()
@@ -158,25 +198,46 @@ void Renderer::resize(uint32_t width, uint32_t height)
         GL_TEXTURE_2D, 0, GL_RGBA8, _width, _height, 0,
         GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
   }
-
   glBindFramebuffer(GL_FRAMEBUFFER, _fbo);
   glFramebufferTexture2D(
       GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, target, _fbt, 0);
 }
 
+void Renderer::camera(float frustum_scale, float z_near, float z_far)
+{
+  // Assumes:
+  // + camera is at the origin
+  // + viewing plane is axis-aligned with centre (0, 0, -1) and dimensions
+  //   [-1, 1] in the X and Y axes.
+  _perspective_matrix[0] = frustum_scale;
+  _perspective_matrix[5] = frustum_scale;
+  _perspective_matrix[10] = (z_near + z_far) / (z_near - z_far);
+  _perspective_matrix[14] = (2 * z_near * z_far) / (z_near - z_far);
+  _perspective_matrix[11] = -1.f;
+}
+
 void Renderer::render()
 {
   glViewport(0, 0, _width, _height);
+  glEnable(GL_CULL_FACE);
+  glCullFace(GL_BACK);
+  glFrontFace(GL_CCW);
+
+  glBindFramebuffer(GL_DRAW_FRAMEBUFFER, _fbo);
+  glEnable(GL_MULTISAMPLE);
   glClearColor(0, 0, 0, 0);
   glClear(GL_COLOR_BUFFER_BIT);
 
   glUseProgram(_program);
-  glBindFramebuffer(GL_DRAW_FRAMEBUFFER, _fbo);
-  glEnable(GL_MULTISAMPLE);
+  glUniformMatrix4fv(
+      glGetUniformLocation(_program, "perspective_matrix"),
+      1, GL_FALSE, _perspective_matrix);
+
   glBindBuffer(GL_ARRAY_BUFFER, _vbo);
   glEnableVertexAttribArray(0);
   glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, 0, 0);
-  glDrawArrays(GL_TRIANGLES, 0, 3);
+  glDrawArrays(GL_TRIANGLES, 0, 3 * 12);
+
   glDisableVertexAttribArray(0);
   glUseProgram(0);
 

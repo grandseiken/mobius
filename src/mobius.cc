@@ -13,7 +13,9 @@ int main()
 
   sf::Window window{sf::VideoMode::getDesktopMode(), "MOBIUS", sf::Style::None};
   window.setVerticalSyncEnabled(true);
-  Renderer renderer{window.getSize().x, window.getSize().y};
+  Renderer renderer;
+  renderer.resize(window.getSize().x, window.getSize().y);
+  renderer.camera(1, .5f, 3);
 
   while (window.isOpen()) {
     sf::Event event;

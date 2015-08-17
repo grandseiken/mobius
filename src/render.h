@@ -5,15 +5,16 @@
 
 class Renderer {
 public:
-  Renderer(uint32_t width, uint32_t height);
+  Renderer();
   ~Renderer();
 
   void resize(uint32_t width, uint32_t height);
+  void camera(float frustum_scale, float z_near, float z_far);
   void render();
 
 private:
-  uint32_t _width;
-  uint32_t _height;
+  uint32_t _width = 0;
+  uint32_t _height = 0;
 
   uint32_t _fbo = 0;
   uint32_t _fbt = 0;
@@ -21,6 +22,8 @@ private:
   uint32_t _program = 0;
   uint32_t _vao = 0;
   uint32_t _vbo = 0;
+
+  float _perspective_matrix[16] = {0};
 };
 
 #endif
