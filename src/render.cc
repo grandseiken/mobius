@@ -49,6 +49,7 @@ namespace {
     glGetProgramiv(program, GL_LINK_STATUS, &status);
     if (status == GL_TRUE) {
       for (const auto& shader : shaders) {
+        glDetachShader(program, shader);
         glDeleteShader(shader);
       }
       return program;
@@ -115,6 +116,19 @@ Renderer::Renderer(uint32_t width, uint32_t height)
   glBindVertexArray(_vao);
 
   resize(width, height);
+}
+
+Renderer::~Renderer()
+{
+  if (_fbo) {
+    glDeleteFramebuffers(1, &_fbo);
+  }
+  if (_fbt) {
+    glDeleteTextures(1, &_fbt);
+  }
+  glDeleteProgram(_program);
+  glDeleteVertexArrays(1, &_vao);
+  glDeleteBuffers(1, &_vbo);
 }
 
 void Renderer::resize(uint32_t width, uint32_t height)
