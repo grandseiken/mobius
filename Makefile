@@ -11,7 +11,10 @@ BINARIES=$(OUTDIR_BIN)/mobius
 export PROTOC=$(PROTOBUF_DIR)/src/protoc
 
 CFLAGS_EXTRA=\
-  -std=c++11 -isystem $(SFML_DIR)/include -isystem $(PROTOBUF_DIR)/src
+  -std=c++11 \
+  -isystem $(SFML_DIR)/include \
+  -isystem $(PROTOBUF_DIR)/src \
+  -isystem $(DEPENDENCIES)/glm
 LFLAGS=\
   $(LFLAGSEXTRA) \
   $(PROTOBUF_DIR)/src/.libs/libprotobuf.a \
