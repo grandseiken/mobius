@@ -93,7 +93,8 @@ Renderer::Renderer(uint32_t width, uint32_t height)
   GLEW_CHECK(GLEW_ARB_shader_objects);
   GLEW_CHECK(GLEW_ARB_vertex_shader);
   GLEW_CHECK(GLEW_ARB_fragment_shader);
-  GLEW_CHECK(GLEW_EXT_framebuffer_object);
+  GLEW_CHECK(GLEW_ARB_framebuffer_object);
+  GLEW_CHECK(GLEW_EXT_framebuffer_multisample);
 
   _program = create_program("main", {
       SHADER(main_vertex, GL_VERTEX_SHADER),
@@ -127,16 +128,26 @@ void Renderer::resize(uint32_t width, uint32_t height)
   if (_fbt) {
     glDeleteTextures(1, &_fbt);
   }
-
   glGenTextures(1, &_fbt);
-  glBindTexture(GL_TEXTURE_2D_MULTISAMPLE, _fbt);
-  glTexImage2DMultisample(
-      GL_TEXTURE_2D_MULTISAMPLE, 8, GL_RGBA8, _width, _height, false);
-
   glGenFramebuffers(1, &_fbo);
+
+  auto samples = 0;
+  glGetIntegerv(GL_MAX_SAMPLES, &samples);
+
+  auto target = samples > 1 ? GL_TEXTURE_2D_MULTISAMPLE : GL_TEXTURE_2D;
+  glBindTexture(target, _fbt);
+  if (samples > 1) {
+    glTexImage2DMultisample(
+        GL_TEXTURE_2D_MULTISAMPLE, samples, GL_RGBA8, _width, _height, false);
+  } else {
+    glTexImage2D(
+        GL_TEXTURE_2D, 0, GL_RGBA8, _width, _height, 0,
+        GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+  }
+
   glBindFramebuffer(GL_FRAMEBUFFER, _fbo);
   glFramebufferTexture2D(
-      GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D_MULTISAMPLE, _fbt, 0);
+      GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, target, _fbt, 0);
 }
 
 void Renderer::render()
