@@ -78,10 +78,23 @@ namespace {
       src_shaders_##name##_glsl, \
       src_shaders_##name##_glsl + src_shaders_##name##_glsl_len))
 
+#include "../gen/shaders/quad.vertex.glsl.h"
+#include "../gen/shaders/quad.fragment.glsl.h"
 #include "../gen/shaders/main.vertex.glsl.h"
 #include "../gen/shaders/main.fragment.glsl.h"
 
-const float cube_vertices[] = {
+static const float quad_vertices[] = {
+  -1, -1, 1, 1,
+  -1,  1, 1, 1,
+   1, -1, 1, 1,
+   1,  1, 1, 1,
+};
+
+static const GLushort quad_indices[] = {
+  0, 2, 1, 1, 2, 3
+};
+
+static const float cube_vertices[] = {
    1,  1,  1, 1,
    1,  1, -1, 1,
    1, -1,  1, 1,
@@ -92,7 +105,7 @@ const float cube_vertices[] = {
   -1, -1, -1, 1,
 };
 
-const GLushort cube_indices[] = {
+static const GLushort cube_indices[] = {
   0, 4, 2, 2, 4, 6,
   1, 3, 5, 3, 7, 5,
   4, 7, 6, 4, 5, 7,
@@ -117,18 +130,32 @@ Renderer::Renderer()
   GLEW_CHECK(GLEW_ARB_framebuffer_object);
   GLEW_CHECK(GLEW_EXT_framebuffer_multisample);
 
-  _program = create_program("main", {
+  _main_program = create_program("main", {
       SHADER(main_vertex, GL_VERTEX_SHADER),
       SHADER(main_fragment, GL_FRAGMENT_SHADER)});
+  _quad_program = create_program("quad", {
+      SHADER(quad_vertex, GL_VERTEX_SHADER),
+      SHADER(quad_fragment, GL_FRAGMENT_SHADER)});
 
-  glGenBuffers(1, &_vbo);
-  glBindBuffer(GL_ARRAY_BUFFER, _vbo);
+  glGenBuffers(1, &_quad_vbo);
+  glBindBuffer(GL_ARRAY_BUFFER, _quad_vbo);
+  glBufferData(GL_ARRAY_BUFFER,
+               sizeof(quad_vertices), quad_vertices, GL_STATIC_DRAW);
+  glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+  glGenBuffers(1, &_quad_ibo);
+  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, _quad_ibo);
+  glBufferData(GL_ELEMENT_ARRAY_BUFFER,
+               sizeof(quad_indices), quad_indices, GL_STATIC_DRAW);
+
+  glGenBuffers(1, &_cube_vbo);
+  glBindBuffer(GL_ARRAY_BUFFER, _cube_vbo);
   glBufferData(GL_ARRAY_BUFFER,
                sizeof(cube_vertices), cube_vertices, GL_STATIC_DRAW);
   glBindBuffer(GL_ARRAY_BUFFER, 0);
 
-  glGenBuffers(1, &_ibo);
-  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, _ibo);
+  glGenBuffers(1, &_cube_ibo);
+  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, _cube_ibo);
   glBufferData(GL_ELEMENT_ARRAY_BUFFER,
                sizeof(cube_indices), cube_indices, GL_STATIC_DRAW);
 
@@ -143,10 +170,13 @@ Renderer::~Renderer()
     glDeleteTextures(1, &_fbt);
     glDeleteTextures(1, &_fbd);
   }
-  glDeleteProgram(_program);
+  glDeleteProgram(_main_program);
+  glDeleteProgram(_quad_program);
   glDeleteVertexArrays(1, &_vao);
-  glDeleteBuffers(1, &_vbo);
-  glDeleteBuffers(1, &_ibo);
+  glDeleteBuffers(1, &_quad_vbo);
+  glDeleteBuffers(1, &_quad_ibo);
+  glDeleteBuffers(1, &_cube_vbo);
+  glDeleteBuffers(1, &_cube_ibo);
 }
 
 void Renderer::resize(const glm::ivec2& dimensions)
@@ -218,6 +248,8 @@ void Renderer::world(const glm::mat4& world_transform)
 
 void Renderer::clear() const
 {
+  ++_frame;
+
   glViewport(0, 0, _dimensions.x, _dimensions.y);
   glEnable(GL_CULL_FACE);
   glCullFace(GL_BACK);
@@ -227,31 +259,55 @@ void Renderer::clear() const
   glEnable(GL_MULTISAMPLE);
   glClearColor(0, 0, 0, 0);
   glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-  glEnable(GL_DEPTH_TEST);
-  glDepthMask(GL_TRUE);
-  glDepthFunc(GL_LEQUAL);
-  glDepthRange(0, 1);
 }
 
 void Renderer::cube(const glm::vec3& colour) const
 {
   compute_transform();
 
-  glUseProgram(_program);
+  glEnable(GL_DEPTH_TEST);
+  glDepthMask(GL_TRUE);
+  glDepthFunc(GL_LEQUAL);
+  glDepthRange(0, 1);
+  glDisable(GL_BLEND);
+
+  glUseProgram(_main_program);
   glUniformMatrix4fv(
-      glGetUniformLocation(_program, "transform"),
+      glGetUniformLocation(_main_program, "transform"),
       1, GL_FALSE, glm::value_ptr(_transform));
   glUniform3fv(
-      glGetUniformLocation(_program, "colour"), 1, glm::value_ptr(colour));
+      glGetUniformLocation(_main_program, "colour"), 1, glm::value_ptr(colour));
 
   glEnableVertexAttribArray(0);
-  glBindBuffer(GL_ARRAY_BUFFER, _vbo);
+  glBindBuffer(GL_ARRAY_BUFFER, _cube_vbo);
   glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, 0, 0);
-  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, _ibo);
+  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, _cube_ibo);
   glDrawElements(GL_TRIANGLES, sizeof(cube_indices) / sizeof(cube_indices[0]),
                  GL_UNSIGNED_SHORT, 0);
   glDrawArrays(GL_TRIANGLES, 0, 3 * 12);
+
+  glDisableVertexAttribArray(0);
+  glUseProgram(0);
+}
+
+void Renderer::grain(float amount) const
+{
+  //glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
+  glUseProgram(_quad_program);
+  glUniform1f(glGetUniformLocation(_quad_program, "amount"), amount);
+  glUniform1f(glGetUniformLocation(_quad_program, "frame"), _frame);
+
+  glDisable(GL_DEPTH_TEST);
+  glEnable(GL_BLEND);
+  glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+  glEnableVertexAttribArray(0);
+  glBindBuffer(GL_ARRAY_BUFFER, _quad_vbo);
+  glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, 0, 0);
+  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, _quad_ibo);
+  glDrawElements(GL_TRIANGLES, sizeof(quad_indices) / sizeof(quad_indices[0]),
+                 GL_UNSIGNED_SHORT, 0);
+  glDrawArrays(GL_TRIANGLES, 0, 3 * 2);
 
   glDisableVertexAttribArray(0);
   glUseProgram(0);

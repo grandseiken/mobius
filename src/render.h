@@ -20,6 +20,7 @@ public:
 
   void clear() const;
   void cube(const glm::vec3& colour) const;
+  void grain(float amount) const;
   void render() const;
 
 private:
@@ -29,10 +30,15 @@ private:
   uint32_t _fbt = 0;
   uint32_t _fbd = 0;
 
-  uint32_t _program = 0;
+  uint32_t _main_program = 0;
+  uint32_t _quad_program = 0;
   uint32_t _vao = 0;
-  uint32_t _vbo = 0;
-  uint32_t _ibo = 0;
+  mutable uint32_t _frame = 0;
+
+  uint32_t _quad_vbo = 0;
+  uint32_t _quad_ibo = 0;
+  uint32_t _cube_vbo = 0;
+  uint32_t _cube_ibo = 0;
 
   // For perspective (camera space to clip space) transform.
   glm::ivec2 _dimensions;
