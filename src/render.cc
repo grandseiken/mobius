@@ -284,7 +284,6 @@ void Renderer::cube(const glm::vec3& colour) const
   glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, _cube_ibo);
   glDrawElements(GL_TRIANGLES, sizeof(cube_indices) / sizeof(cube_indices[0]),
                  GL_UNSIGNED_SHORT, 0);
-  glDrawArrays(GL_TRIANGLES, 0, 3 * 12);
 
   glDisableVertexAttribArray(0);
   glUseProgram(0);
@@ -306,7 +305,6 @@ void Renderer::grain(float amount) const
   glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, _quad_ibo);
   glDrawElements(GL_TRIANGLES, sizeof(quad_indices) / sizeof(quad_indices[0]),
                  GL_UNSIGNED_SHORT, 0);
-  glDrawArrays(GL_TRIANGLES, 0, 3 * 2);
 
   glDisableVertexAttribArray(0);
   glUseProgram(0);

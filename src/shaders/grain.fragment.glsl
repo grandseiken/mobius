@@ -15,8 +15,8 @@ void main()
   n += 2 * snoise(2 * seed - vec3(0, 0, time / 2.25));
   n += 4 * snoise(4 * seed - vec3(0, 0, time / 1.5));
   n += 8 * snoise(8 * seed - vec3(0, 0, time));
-  n /= 8;
-  float v = (n + 1) / 2;
+  n /= 4;
+  float v = clamp((n + 1) / 2, 0, 1);
   output_colour = vec4(v, v, v, amount);
 }
 
