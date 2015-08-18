@@ -29,7 +29,9 @@ int main()
   while (window.isOpen()) {
     sf::Event event;
     while (window.pollEvent(event)) {
-      if (event.type == sf::Event::Closed) {
+      if (event.type == sf::Event::Closed ||
+          (event.type == sf::Event::KeyPressed &&
+           event.key.code == sf::Keyboard::Escape)) {
         window.close();
       } else if (event.type == sf::Event::Resized) {
         renderer.resize(glm::ivec2{window.getSize().x, window.getSize().y});
@@ -76,11 +78,11 @@ int main()
 
     renderer.clear();
     renderer.world(
-        glm::translate(glm::mat4{1}, glm::vec3{.5, .5, -1}) *
+        glm::translate(glm::mat4{1}, glm::vec3{.25, .25, 0}) *
         glm::scale(glm::mat4{1}, glm::vec3{.25, .25, .75}));
     renderer.cube(glm::vec3{0.6, 0.2, 0.2});
     renderer.world(
-        glm::translate(glm::mat4{1}, glm::vec3{.25, .25, -1.5}) *
+        glm::translate(glm::mat4{1}, glm::vec3{0, 0, -.5}) *
         glm::scale(glm::mat4{1}, glm::vec3{1, .25, 1}));
     renderer.cube(glm::vec3{0.2, 0.6, 0.2});
     renderer.render();
