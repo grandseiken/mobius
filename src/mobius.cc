@@ -85,7 +85,7 @@ int main()
         glm::translate(glm::mat4{1}, glm::vec3{0, 0, -.5}) *
         glm::scale(glm::mat4{1}, glm::vec3{1, .25, 1}));
     renderer.cube(glm::vec3{0.2, 0.6, 0.2});
-    renderer.grain(0.1);
+    renderer.grain(0.0625);
     renderer.render();
     window.display();
   }

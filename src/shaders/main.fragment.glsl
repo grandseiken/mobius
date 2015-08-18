@@ -1,5 +1,3 @@
-#version 330
-
 flat in vec3 vertex_colour;
 
 out vec4 output_colour;

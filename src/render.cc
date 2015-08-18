@@ -75,13 +75,13 @@ namespace {
 #define SHADER(name, type) \
   create_shader( \
     #name, type, std::string(\
-      src_shaders_##name##_glsl, \
-      src_shaders_##name##_glsl + src_shaders_##name##_glsl_len))
+      gen_shaders_##name##_glsl, \
+      gen_shaders_##name##_glsl + gen_shaders_##name##_glsl_len))
 
-#include "../gen/shaders/quad.vertex.glsl.h"
-#include "../gen/shaders/quad.fragment.glsl.h"
 #include "../gen/shaders/main.vertex.glsl.h"
 #include "../gen/shaders/main.fragment.glsl.h"
+#include "../gen/shaders/quad.vertex.glsl.h"
+#include "../gen/shaders/grain.fragment.glsl.h"
 
 static const float quad_vertices[] = {
   -1, -1, 1, 1,
@@ -133,9 +133,9 @@ Renderer::Renderer()
   _main_program = create_program("main", {
       SHADER(main_vertex, GL_VERTEX_SHADER),
       SHADER(main_fragment, GL_FRAGMENT_SHADER)});
-  _quad_program = create_program("quad", {
+  _grain_program = create_program("grain", {
       SHADER(quad_vertex, GL_VERTEX_SHADER),
-      SHADER(quad_fragment, GL_FRAGMENT_SHADER)});
+      SHADER(grain_fragment, GL_FRAGMENT_SHADER)});
 
   glGenBuffers(1, &_quad_vbo);
   glBindBuffer(GL_ARRAY_BUFFER, _quad_vbo);
@@ -171,7 +171,7 @@ Renderer::~Renderer()
     glDeleteTextures(1, &_fbd);
   }
   glDeleteProgram(_main_program);
-  glDeleteProgram(_quad_program);
+  glDeleteProgram(_grain_program);
   glDeleteVertexArrays(1, &_vao);
   glDeleteBuffers(1, &_quad_vbo);
   glDeleteBuffers(1, &_quad_ibo);
@@ -292,10 +292,9 @@ void Renderer::cube(const glm::vec3& colour) const
 
 void Renderer::grain(float amount) const
 {
-  //glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
-  glUseProgram(_quad_program);
-  glUniform1f(glGetUniformLocation(_quad_program, "amount"), amount);
-  glUniform1f(glGetUniformLocation(_quad_program, "frame"), _frame);
+  glUseProgram(_grain_program);
+  glUniform1f(glGetUniformLocation(_grain_program, "amount"), amount);
+  glUniform1f(glGetUniformLocation(_grain_program, "frame"), _frame);
 
   glDisable(GL_DEPTH_TEST);
   glEnable(GL_BLEND);

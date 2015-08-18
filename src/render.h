@@ -31,7 +31,7 @@ private:
   uint32_t _fbd = 0;
 
   uint32_t _main_program = 0;
-  uint32_t _quad_program = 0;
+  uint32_t _grain_program = 0;
   uint32_t _vao = 0;
   mutable uint32_t _frame = 0;
 

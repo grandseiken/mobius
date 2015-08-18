@@ -29,6 +29,7 @@ LFLAGS=\
 CC_SOURCE_FILES=$(wildcard $(SRCDIR)/*.cc)
 PROTO_FILES=$(wildcard $(SRCDIR)/*.proto)
 SHADER_FILES=$(wildcard $(SRCDIR)/shaders/*.glsl)
+SHADER_H_FILES=$(wildcard $(SRCDIR)/shaders/*.glsl.h)
 PROTO_OUTPUTS=$(subst $(SRCDIR)/,$(GENDIR)/,$(PROTO_FILES:.proto=.pb.cc))
 SHADER_OUTPUTS=$(subst $(SRCDIR)/,$(GENDIR)/,$(SHADER_FILES:.glsl=.glsl.h))
 CC_GENERATED_FILES=$(PROTO_OUTPUTS)
@@ -82,8 +83,15 @@ $(GENDIR)/%.pb.cc: \
 	$(PROTOC) --proto_path=$(SRCDIR) --cpp_out=$(GENDIR) ./$<
 
 # Shader files.
-$(GENDIR)/%.glsl.h: \
-  $(SRCDIR)/%.glsl
+$(GENDIR)/%.glsl: \
+  $(SRCDIR)/%.glsl $(SHADER_H_FILES)
 	$(MKDIR)
-	@echo Compiling ./$<
+	@echo Preprocessing ./$<
+	echo "#version 330\n" > $@
+	cpp -isystem $(DEPENDENCIES)/webgl-noise/src $< >> $@
+
+$(GENDIR)/%.glsl.h: \
+  $(GENDIR)/%.glsl
+	$(MKDIR)
+	@echo Generating ./$@
 	xxd -i $< > $@
