@@ -88,7 +88,7 @@ $(GENDIR)/%.glsl: \
 	$(MKDIR)
 	@echo Preprocessing ./$<
 	echo "#version 330\n" > $@
-	cpp -isystem $(DEPENDENCIES)/webgl-noise/src $< >> $@
+	cpp $< >> $@
 
 $(GENDIR)/%.glsl.h: \
   $(GENDIR)/%.glsl

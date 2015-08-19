@@ -4,6 +4,6 @@ out vec4 output_colour;
 
 void main()
 {
-  output_colour = vec4(vertex_colour, 1);
+  output_colour = vec4(vertex_colour, 1.);
 }
 
