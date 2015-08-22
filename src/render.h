@@ -3,6 +3,7 @@
 
 #include <glm/vec2.hpp>
 #include <glm/vec3.hpp>
+#include <glm/mat3x3.hpp>
 #include <glm/mat4x4.hpp>
 #include <array>
 #include <cstdint>
@@ -61,7 +62,9 @@ private:
   glm::mat4 _world_transform;
 
   mutable glm::mat4 _vp_transform;
-  mutable bool _vp_transform_dirty;
+  mutable glm::mat3 _normal_transform;
+  mutable bool _vp_transform_dirty = false;
+  mutable bool _normal_transform_dirty = false;
 };
 
 #endif

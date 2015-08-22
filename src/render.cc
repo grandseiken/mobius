@@ -296,6 +296,7 @@ void Renderer::camera(const glm::vec3& eye, const glm::vec3& target,
 void Renderer::world(const glm::mat4& world_transform)
 {
   _world_transform = world_transform;
+  _normal_transform_dirty = true;
 }
 
 void Renderer::light(const glm::vec3& source, float intensity)
@@ -330,12 +331,15 @@ void Renderer::cube(const glm::vec3& colour) const
   glDisable(GL_BLEND);
 
   glUseProgram(_main_program);
-  glUniformMatrix4fv(
-      glGetUniformLocation(_main_program, "vp_transform"),
-      1, GL_FALSE, glm::value_ptr(_vp_transform));
+  glUniformMatrix3fv(
+      glGetUniformLocation(_main_program, "normal_transform"),
+      1, GL_FALSE, glm::value_ptr(_normal_transform));
   glUniformMatrix4fv(
       glGetUniformLocation(_main_program, "world_transform"),
       1, GL_FALSE, glm::value_ptr(_world_transform));
+  glUniformMatrix4fv(
+      glGetUniformLocation(_main_program, "vp_transform"),
+      1, GL_FALSE, glm::value_ptr(_vp_transform));
   glUniform3fv(
       glGetUniformLocation(_main_program, "colour"), 1, glm::value_ptr(colour));
   glUniform3fv(
@@ -392,14 +396,18 @@ void Renderer::render() const
 
 void Renderer::compute_transform() const
 {
-  if (!_vp_transform_dirty) {
-    return;
+  if (_vp_transform_dirty) {
+    auto perspective_transform = glm::perspectiveRH(
+        _perspective.fov, (float)_dimensions.x / _dimensions.y,
+        _perspective.z_near, _perspective.z_far);
+
+    _vp_transform_dirty = false;
+    _vp_transform = perspective_transform * _view_transform;
   }
-  _vp_transform_dirty = false;
 
-  auto perspective_transform = glm::perspectiveRH(
-      _perspective.fov, (float)_dimensions.x / _dimensions.y,
-      _perspective.z_near, _perspective.z_far);
-
-  _vp_transform = perspective_transform * _view_transform;
+  if (_normal_transform_dirty) {
+    _normal_transform_dirty = false;
+    _normal_transform =
+        glm::transpose(glm::inverse(glm::mat3{_world_transform}));
+  }
 }
