@@ -75,6 +75,7 @@ int main()
         glm::vec3{ 0,  1,  0} * (up ? 1.f : 0.f);
     camera += camera_offset * .01f;
     renderer.camera(camera, glm::vec3{0, 0, 0}, glm::vec3{0, 1, 0});
+    renderer.light(camera, 1.f);
 
     renderer.clear();
     renderer.world(

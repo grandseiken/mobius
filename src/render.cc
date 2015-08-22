@@ -235,7 +235,7 @@ Renderer::~Renderer()
 void Renderer::resize(const glm::ivec2& dimensions)
 {
   _dimensions = dimensions;
-  _transform_dirty = true;
+  _vp_transform_dirty = true;
 
   if (_fbo) {
     glDeleteFramebuffers(1, &_fbo);
@@ -283,20 +283,25 @@ void Renderer::perspective(float fov, float z_near, float z_far)
   _perspective.fov = fov;
   _perspective.z_near = z_near;
   _perspective.z_far = z_far;
-  _transform_dirty = true;
+  _vp_transform_dirty = true;
 }
 
 void Renderer::camera(const glm::vec3& eye, const glm::vec3& target,
                       const glm::vec3& up)
 {
   _view_transform = glm::lookAt(eye, target, up);
-  _transform_dirty = true;
+  _vp_transform_dirty = true;
 }
 
 void Renderer::world(const glm::mat4& world_transform)
 {
   _world_transform = world_transform;
-  _transform_dirty = true;
+}
+
+void Renderer::light(const glm::vec3& source, float intensity)
+{
+  _light.source = source;
+  _light.intensity = intensity;
 }
 
 void Renderer::clear() const
@@ -326,10 +331,18 @@ void Renderer::cube(const glm::vec3& colour) const
 
   glUseProgram(_main_program);
   glUniformMatrix4fv(
-      glGetUniformLocation(_main_program, "transform"),
-      1, GL_FALSE, glm::value_ptr(_transform));
+      glGetUniformLocation(_main_program, "vp_transform"),
+      1, GL_FALSE, glm::value_ptr(_vp_transform));
+  glUniformMatrix4fv(
+      glGetUniformLocation(_main_program, "world_transform"),
+      1, GL_FALSE, glm::value_ptr(_world_transform));
   glUniform3fv(
       glGetUniformLocation(_main_program, "colour"), 1, glm::value_ptr(colour));
+  glUniform3fv(
+      glGetUniformLocation(_main_program, "light_source"), 1,
+      glm::value_ptr(_light.source));
+  glUniform1f(
+      glGetUniformLocation(_main_program, "light_intensity"), _light.intensity);
 
   glEnableVertexAttribArray(0);
   glEnableVertexAttribArray(1);
@@ -379,14 +392,14 @@ void Renderer::render() const
 
 void Renderer::compute_transform() const
 {
-  if (!_transform_dirty) {
+  if (!_vp_transform_dirty) {
     return;
   }
-  _transform_dirty = false;
+  _vp_transform_dirty = false;
 
   auto perspective_transform = glm::perspectiveRH(
       _perspective.fov, (float)_dimensions.x / _dimensions.y,
       _perspective.z_near, _perspective.z_far);
 
-  _transform = perspective_transform * _view_transform * _world_transform;
+  _vp_transform = perspective_transform * _view_transform;
 }

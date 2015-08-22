@@ -17,6 +17,7 @@ public:
   void camera(const glm::vec3& eye, const glm::vec3& target,
               const glm::vec3& up);
   void world(const glm::mat4& world_transform);
+  void light(const glm::vec3& source, float intensity);
 
   void clear() const;
   void cube(const glm::vec3& colour) const;
@@ -40,6 +41,11 @@ private:
   uint32_t _cube_vbo = 0;
   uint32_t _cube_ibo = 0;
 
+  struct {
+    glm::vec3 source;
+    float intensity;
+  } _light;
+
   // For perspective (camera space to clip space) transform.
   glm::ivec2 _dimensions;
   struct {
@@ -54,8 +60,8 @@ private:
   // For world (model space to world space) transform.
   glm::mat4 _world_transform;
 
-  mutable glm::mat4 _transform;
-  mutable bool _transform_dirty;
+  mutable glm::mat4 _vp_transform;
+  mutable bool _vp_transform_dirty;
 };
 
 #endif
