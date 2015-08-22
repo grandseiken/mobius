@@ -81,11 +81,11 @@ int main()
     renderer.world(
         glm::translate(glm::mat4{1}, glm::vec3{.25, .25, 0}) *
         glm::scale(glm::mat4{1}, glm::vec3{.25, .25, .75}));
-    renderer.cube(glm::vec3{0.6, 0.2, 0.2});
+    renderer.cube(glm::vec3{0xb5 / 255., 0x89 / 255., 0.});
     renderer.world(
         glm::translate(glm::mat4{1}, glm::vec3{0, 0, -.5}) *
         glm::scale(glm::mat4{1}, glm::vec3{1, .25, 1}));
-    renderer.cube(glm::vec3{0.2, 0.6, 0.2});
+    renderer.cube(glm::vec3{0xcb / 255., 0x4b / 255., 0x16 / 255.});
     renderer.grain(0.0625);
     renderer.render();
     window.display();

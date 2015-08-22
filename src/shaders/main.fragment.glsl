@@ -15,7 +15,7 @@ void main()
   float cos_angle = dot(light_normal, vertex_normal);
   float intensity =
       (light_intensity * cos_angle) /
-      max(1., light_distance * light_distance);
+      (1. + light_distance * light_distance);
 
   const float ambient = .1;
   intensity = clamp(ambient + intensity, 0., 1.);
