@@ -1,6 +1,12 @@
+// Must be small enough that permute(x) can be calculated without overflowing.
+const int permutation_prime_factor = 59;
+const int permutation_ring_size =
+    permutation_prime_factor * permutation_prime_factor;
+
 ivec4 permute(ivec4 x)
 {
-  return (x * (1 + x * 34)) % 289;
+  return (1 + x * (1 + 2 * x * permutation_prime_factor)) %
+      permutation_ring_size;
 }
 
 ivec3 and3(bvec3 a, bvec3 b)
@@ -25,7 +31,7 @@ float interpolate(vec3 x0, vec3 x1, vec3 x2, vec3 x3,
 // Get the permutation: four "random" numbers in the range [0, 289).
 ivec4 random4_289(ivec3 i0, ivec3 i1, ivec3 i2)
 {
-  i0 = ivec3(mod(i0, 289.));
+  i0 = ivec3(mod(i0, float(permutation_ring_size)));
   return
       permute(i0.x + ivec4(0, i1.x, i2.x, 1) +
       permute(i0.y + ivec4(0, i1.y, i2.y, 1) +
@@ -46,7 +52,7 @@ float simplex3(vec3 coord)
   vec3 x3 = x0 - .5;
 
   // Gradients to choose from are 7x7 points over a square mapped onto an
-  // octahedron. (Note 289 is close to a multiple of 49.)
+  // octahedron.
   ivec4 gradient_index = random4_289(index, i1, i2) % 49;
 
   vec4 x = (2. / 7.) * (gradient_index / 7 - 1);
