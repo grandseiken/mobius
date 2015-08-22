@@ -8,6 +8,8 @@
 #include <array>
 #include <cstdint>
 
+class Mesh;
+
 class Renderer {
 public:
   Renderer();
@@ -21,7 +23,7 @@ public:
   void light(const glm::vec3& source, float intensity);
 
   void clear() const;
-  void cube(const glm::vec3& colour) const;
+  void mesh(const Mesh& mesh) const;
   void grain(float amount) const;
   void render() const;
 
@@ -35,12 +37,10 @@ private:
   uint32_t _main_program = 0;
   uint32_t _grain_program = 0;
   uint32_t _vao = 0;
-  mutable uint32_t _frame = 0;
 
+  mutable uint32_t _frame = 0;
   uint32_t _quad_vbo = 0;
   uint32_t _quad_ibo = 0;
-  uint32_t _cube_vbo = 0;
-  uint32_t _cube_ibo = 0;
 
   struct {
     glm::vec3 source;

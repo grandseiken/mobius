@@ -18,7 +18,7 @@ void main()
   float cos_angle = dot(light_normal, vertex_normal);
   float intensity = (light_intensity * cos_angle) / (1. + light_distance_sq);
 
-  const float ambient = .1;
+  const float ambient = .01;
   intensity = clamp(ambient + intensity, 0., 1.);
 
   vec3 lit_colour = gamma_correct(intensity * gamma_decorrect(vertex_colour));

@@ -1,4 +1,6 @@
 #include "render.h"
+#include "mesh.h"
+
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
 #include <GL/glew.h>
@@ -94,79 +96,6 @@ static const GLushort quad_indices[] = {
   0, 2, 1, 1, 2, 3,
 };
 
-static const float cube_vertices[] = {
-  // Vertices.
-  -1, -1, -1, 1,
-   1, -1, -1, 1,
-  -1,  1, -1, 1,
-   1,  1, -1, 1,
-
-  -1, -1,  1, 1,
-   1, -1,  1, 1,
-  -1,  1,  1, 1,
-   1,  1,  1, 1,
-
-  -1, -1, -1, 1,
-   1, -1, -1, 1,
-  -1, -1,  1, 1,
-   1, -1,  1, 1,
-
-  -1,  1, -1, 1,
-   1,  1, -1, 1,
-  -1,  1,  1, 1,
-   1,  1,  1, 1,
-
-  -1, -1, -1, 1,
-  -1,  1, -1, 1,
-  -1, -1,  1, 1,
-  -1,  1,  1, 1,
-
-   1, -1, -1, 1,
-   1,  1, -1, 1,
-   1, -1,  1, 1,
-   1,  1,  1, 1,
-
-  // Normals.
-   0,  0, -1,
-   0,  0, -1,
-   0,  0, -1,
-   0,  0, -1,
-
-   0,  0,  1,
-   0,  0,  1,
-   0,  0,  1,
-   0,  0,  1,
-
-   0, -1,  0,
-   0, -1,  0,
-   0, -1,  0,
-   0, -1,  0,
-
-   0,  1,  0,
-   0,  1,  0,
-   0,  1,  0,
-   0,  1,  0,
-
-  -1,  0,  0,
-  -1,  0,  0,
-  -1,  0,  0,
-  -1,  0,  0,
-
-   1,  0,  0,
-   1,  0,  0,
-   1,  0,  0,
-   1,  0,  0,
-};
-
-static const GLushort cube_indices[] = {
-   0,  2,  1,  1,  2,  3,
-   4,  5,  6,  6,  5,  7,
-   8,  9, 10, 10,  9, 11,
-  12, 14, 13, 13, 14, 15,
-  16, 18, 17, 17, 18, 19,
-  20, 21, 22, 22, 21, 23,
-};
-
 Renderer::Renderer()
 {
   auto glew_ok = glewInit();
@@ -194,23 +123,11 @@ Renderer::Renderer()
   glBindBuffer(GL_ARRAY_BUFFER, _quad_vbo);
   glBufferData(GL_ARRAY_BUFFER,
                sizeof(quad_vertices), quad_vertices, GL_STATIC_DRAW);
-  glBindBuffer(GL_ARRAY_BUFFER, 0);
 
   glGenBuffers(1, &_quad_ibo);
   glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, _quad_ibo);
   glBufferData(GL_ELEMENT_ARRAY_BUFFER,
                sizeof(quad_indices), quad_indices, GL_STATIC_DRAW);
-
-  glGenBuffers(1, &_cube_vbo);
-  glBindBuffer(GL_ARRAY_BUFFER, _cube_vbo);
-  glBufferData(GL_ARRAY_BUFFER,
-               sizeof(cube_vertices), cube_vertices, GL_STATIC_DRAW);
-  glBindBuffer(GL_ARRAY_BUFFER, 0);
-
-  glGenBuffers(1, &_cube_ibo);
-  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, _cube_ibo);
-  glBufferData(GL_ELEMENT_ARRAY_BUFFER,
-               sizeof(cube_indices), cube_indices, GL_STATIC_DRAW);
 
   glGenVertexArrays(1, &_vao);
   glBindVertexArray(_vao);
@@ -225,11 +142,9 @@ Renderer::~Renderer()
   }
   glDeleteProgram(_main_program);
   glDeleteProgram(_grain_program);
-  glDeleteVertexArrays(1, &_vao);
   glDeleteBuffers(1, &_quad_vbo);
   glDeleteBuffers(1, &_quad_ibo);
-  glDeleteBuffers(1, &_cube_vbo);
-  glDeleteBuffers(1, &_cube_ibo);
+  glDeleteVertexArrays(1, &_vao);
 }
 
 void Renderer::resize(const glm::ivec2& dimensions)
@@ -320,7 +235,7 @@ void Renderer::clear() const
   glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 }
 
-void Renderer::cube(const glm::vec3& colour) const
+void Renderer::mesh(const Mesh& mesh) const
 {
   compute_transform();
 
@@ -341,8 +256,6 @@ void Renderer::cube(const glm::vec3& colour) const
       glGetUniformLocation(_main_program, "vp_transform"),
       1, GL_FALSE, glm::value_ptr(_vp_transform));
   glUniform3fv(
-      glGetUniformLocation(_main_program, "colour"), 1, glm::value_ptr(colour));
-  glUniform3fv(
       glGetUniformLocation(_main_program, "light_source"), 1,
       glm::value_ptr(_light.source));
   glUniform1f(
@@ -350,16 +263,21 @@ void Renderer::cube(const glm::vec3& colour) const
 
   glEnableVertexAttribArray(0);
   glEnableVertexAttribArray(1);
-  glBindBuffer(GL_ARRAY_BUFFER, _cube_vbo);
-  glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, 0, 0);
-  glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 0,
-                        reinterpret_cast<void*>(sizeof(float) * 4 * 24));
-  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, _cube_ibo);
-  glDrawElements(GL_TRIANGLES, sizeof(cube_indices) / sizeof(cube_indices[0]),
-                 GL_UNSIGNED_SHORT, 0);
+  glEnableVertexAttribArray(2);
+
+  glBindBuffer(GL_ARRAY_BUFFER, mesh._vbo);
+  glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 9 * sizeof(float),
+                        reinterpret_cast<void*>(sizeof(float) * 0));
+  glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 9 * sizeof(float),
+                        reinterpret_cast<void*>(sizeof(float) * 3));
+  glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, 9 * sizeof(float),
+                        reinterpret_cast<void*>(sizeof(float) * 6));
+  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mesh._ibo);
+  glDrawElements(GL_TRIANGLES, mesh._vertex_count, GL_UNSIGNED_SHORT, 0);
 
   glDisableVertexAttribArray(0);
   glDisableVertexAttribArray(1);
+  glDisableVertexAttribArray(2);
   glUseProgram(0);
 }
 

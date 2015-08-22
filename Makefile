@@ -28,6 +28,8 @@ LFLAGS=\
 # File listings.
 CC_SOURCE_FILES=$(wildcard $(SRCDIR)/*.cc)
 PROTO_FILES=$(wildcard $(SRCDIR)/*.proto)
+PROTO_TEXT_FILES=$(wildcard $(SRCDIR)/*.pb)
+PROTO_DATA_FILES=$(subst $(SRCDIR)/,$(GENDIR)/,$(PROTO_TEXT_FILES))
 SHADER_FILES=$(wildcard $(SRCDIR)/shaders/*.glsl)
 SHADER_H_FILES=$(wildcard $(SRCDIR)/shaders/*.glsl.h)
 PROTO_OUTPUTS=$(subst $(SRCDIR)/,$(GENDIR)/,$(PROTO_FILES:.proto=.pb.cc))
@@ -48,7 +50,9 @@ ifneq ('$(MAKECMDGOALS)', 'todo')
 ifneq ('$(MAKECMDGOALS)', 'wc')
 ifneq ('$(MAKECMDGOALS)', 'clean')
 ifneq ('$(MAKECMDGOALS)', 'clean_all')
+ifneq ('$(MAKECMDGOALS)', 'data')
 DISABLE_CC_DEPENDENCY_ANALYSIS=false
+endif
 endif
 endif
 endif
@@ -59,6 +63,8 @@ include dependencies/makelib/Makefile
 # Master targets.
 .PHONY: all
 all: $(BINARIES)
+.PHONY: data
+data: $(PROTO_DATA_FILES)
 .PHONY: clean
 clean:
 	rm -rf $(OUTDIR) $(GENDIR)
@@ -81,6 +87,14 @@ $(GENDIR)/%.pb.cc: \
 	$(MKDIR)
 	@echo Compiling ./$<
 	$(PROTOC) --proto_path=$(SRCDIR) --cpp_out=$(GENDIR) ./$<
+
+# Proto mesh files.
+$(GENDIR)/%.mesh.pb: \
+  $(SRCDIR)/%.mesh.pb
+	$(MKDIR)
+	@echo Processing ./$<
+	cat ./$< | $(PROTOC) --proto_path=$(SRCDIR) \
+	    --encode=mobius.proto.mesh $(PROTO_FILES) > $@ || rm $@
 
 # Shader files.
 $(GENDIR)/%.glsl: \

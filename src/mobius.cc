@@ -1,6 +1,7 @@
 #include <SFML/Window.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include "render.h"
+#include "mesh.h"
 
 int main()
 {
@@ -17,7 +18,8 @@ int main()
   Renderer renderer;
   renderer.resize(glm::ivec2{window.getSize().x, window.getSize().y});
   renderer.perspective(3.141592654 / 2, 1. / 1024, 1024);
-  glm::vec3 camera{0, 0, 1};
+  glm::vec3 camera{0, 0, 4};
+  Mesh level{"gen/level.mesh.pb"};
 
   bool forward = false;
   bool backward = false;
@@ -25,6 +27,7 @@ int main()
   bool right = false;
   bool up = false;
   bool down = false;
+  float r = 0.f;
 
   while (window.isOpen()) {
     sf::Event event;
@@ -73,19 +76,26 @@ int main()
         glm::vec3{ 1,  0,  0} * (right ? 1.f : 0.f) +
         glm::vec3{ 0, -1,  0} * (down ? 1.f : 0.f) +
         glm::vec3{ 0,  1,  0} * (up ? 1.f : 0.f);
-    camera += camera_offset * .01f;
+    camera += camera_offset * .05f;
+    r += .01f;
     renderer.camera(camera, glm::vec3{0, 0, 0}, glm::vec3{0, 1, 0});
     renderer.light(camera, 1.f);
 
     renderer.clear();
     renderer.world(
-        glm::translate(glm::mat4{1}, glm::vec3{.25, .25, 0}) *
-        glm::scale(glm::mat4{1}, glm::vec3{.25, .25, .75}));
-    renderer.cube(glm::vec3{0xb5 / 255., 0x89 / 255., 0.});
+        glm::translate(glm::mat4{1}, glm::vec3{0, 0, 0}) *
+        glm::scale(glm::mat4{1}, glm::vec3{1, 1, 1}));
+    renderer.mesh(level);
     renderer.world(
-        glm::translate(glm::mat4{1}, glm::vec3{0, 0, -.5}) *
-        glm::scale(glm::mat4{1}, glm::vec3{1, .25, 1}));
-    renderer.cube(glm::vec3{0xcb / 255., 0x4b / 255., 0x16 / 255.});
+        glm::translate(glm::mat4{1}, glm::vec3{-4, 0, 0}) *
+        glm::rotate(glm::mat4{1}, r, glm::vec3{0, 1, 0}) *
+        glm::scale(glm::mat4{1}, glm::vec3{1, 1, 1}));
+    renderer.mesh(level);
+    renderer.world(
+        glm::translate(glm::mat4{1}, glm::vec3{8, 0, 0}) *
+        glm::rotate(glm::mat4{1}, r, glm::vec3{0, 1, 0}) *
+        glm::scale(glm::mat4{1}, glm::vec3{2, 2, 2}));
+    renderer.mesh(level);
     renderer.grain(0.0625);
     renderer.render();
     window.display();

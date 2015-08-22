@@ -1,3 +1,42 @@
 syntax = "proto3";
 package mobius.proto;
 
+message rgb {
+  float r = 1;
+  float g = 2;
+  float b = 3;
+}
+
+message vec3 {
+  float x = 1;
+  float y = 2;
+  float z = 3;
+}
+
+message tri {
+  uint32 a = 1;
+  uint32 b = 2;
+  uint32 c = 3;
+}
+
+message quad {
+  uint32 a = 1;
+  uint32 b = 2;
+  uint32 c = 3;
+  uint32 d = 4;
+}
+
+message material {
+  rgb colour = 1;
+}
+
+message sub_mesh {
+  material material = 1;
+  repeated tri tri = 2;
+  repeated quad quad = 3;
+}
+
+message mesh {
+  repeated vec3 vertex = 1;
+  repeated sub_mesh sub = 2;
+}
