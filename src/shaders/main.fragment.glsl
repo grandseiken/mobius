@@ -9,16 +9,16 @@ uniform float light_intensity;
 
 void main()
 {
-  float light_distance = distance(light_source, vertex_world);
-  vec3 light_normal = normalize(light_source - vertex_world);
+  vec3 light_difference = light_source - vertex_world;
+  float light_distance_sq = dot(light_difference, light_difference);
+  vec3 light_normal = light_difference * inversesqrt(light_distance_sq);
 
   float cos_angle = dot(light_normal, vertex_normal);
-  float intensity =
-      (light_intensity * cos_angle) /
-      (1. + light_distance * light_distance);
+  float intensity = (light_intensity * cos_angle) / (1. + light_distance_sq);
 
   const float ambient = .1;
   intensity = clamp(ambient + intensity, 0., 1.);
+
   output_colour = vec4(intensity * vertex_colour, 1.);
 }
 
