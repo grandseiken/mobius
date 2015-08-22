@@ -18,7 +18,7 @@ void main()
   float n =
       simplex_layer(seed, time, 1.) +
       simplex_layer(seed, time, 2.) +
-      simplex_layer(seed, time, 4.) + simplex_layer(seed, time, 8.);
+      simplex_layer(seed, time, 4.);
   float v = clamp((n + 1.) / 2., 0., 1.);
   output_colour = vec4(v, v, v, v * amount);
 }
