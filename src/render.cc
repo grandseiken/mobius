@@ -91,27 +91,80 @@ static const float quad_vertices[] = {
 };
 
 static const GLushort quad_indices[] = {
-  0, 2, 1, 1, 2, 3
+  0, 2, 1, 1, 2, 3,
 };
 
 static const float cube_vertices[] = {
-   1,  1,  1, 1,
-   1,  1, -1, 1,
-   1, -1,  1, 1,
+  // Vertices.
+  -1, -1, -1, 1,
    1, -1, -1, 1,
+  -1,  1, -1, 1,
+   1,  1, -1, 1,
+
+  -1, -1,  1, 1,
+   1, -1,  1, 1,
   -1,  1,  1, 1,
+   1,  1,  1, 1,
+
+  -1, -1, -1, 1,
+   1, -1, -1, 1,
+  -1, -1,  1, 1,
+   1, -1,  1, 1,
+
+  -1,  1, -1, 1,
+   1,  1, -1, 1,
+  -1,  1,  1, 1,
+   1,  1,  1, 1,
+
+  -1, -1, -1, 1,
   -1,  1, -1, 1,
   -1, -1,  1, 1,
-  -1, -1, -1, 1,
+  -1,  1,  1, 1,
+
+   1, -1, -1, 1,
+   1,  1, -1, 1,
+   1, -1,  1, 1,
+   1,  1,  1, 1,
+
+  // Normals.
+   0,  0, -1,
+   0,  0, -1,
+   0,  0, -1,
+   0,  0, -1,
+
+   0,  0,  1,
+   0,  0,  1,
+   0,  0,  1,
+   0,  0,  1,
+
+   0, -1,  0,
+   0, -1,  0,
+   0, -1,  0,
+   0, -1,  0,
+
+   0,  1,  0,
+   0,  1,  0,
+   0,  1,  0,
+   0,  1,  0,
+
+  -1,  0,  0,
+  -1,  0,  0,
+  -1,  0,  0,
+  -1,  0,  0,
+
+   1,  0,  0,
+   1,  0,  0,
+   1,  0,  0,
+   1,  0,  0,
 };
 
 static const GLushort cube_indices[] = {
-  0, 4, 2, 2, 4, 6,
-  1, 3, 5, 3, 7, 5,
-  4, 7, 6, 4, 5, 7,
-  0, 2, 3, 0, 3, 1,
-  1, 4, 0, 1, 5, 4,
-  3, 2, 6, 3, 6, 7,
+   0,  2,  1,  1,  2,  3,
+   4,  5,  6,  6,  5,  7,
+   8,  9, 10, 10,  9, 11,
+  12, 14, 13, 13, 14, 15,
+  16, 18, 17, 17, 18, 19,
+  20, 21, 22, 22, 21, 23,
 };
 
 Renderer::Renderer()
@@ -279,13 +332,17 @@ void Renderer::cube(const glm::vec3& colour) const
       glGetUniformLocation(_main_program, "colour"), 1, glm::value_ptr(colour));
 
   glEnableVertexAttribArray(0);
+  glEnableVertexAttribArray(1);
   glBindBuffer(GL_ARRAY_BUFFER, _cube_vbo);
   glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, 0, 0);
+  glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 0,
+                        reinterpret_cast<void*>(sizeof(float) * 4 * 24));
   glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, _cube_ibo);
   glDrawElements(GL_TRIANGLES, sizeof(cube_indices) / sizeof(cube_indices[0]),
                  GL_UNSIGNED_SHORT, 0);
 
   glDisableVertexAttribArray(0);
+  glDisableVertexAttribArray(1);
   glUseProgram(0);
 }
 
