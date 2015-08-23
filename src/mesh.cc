@@ -1,11 +1,9 @@
 #include "mesh.h"
 #include "../gen/mobius.pb.h"
 
-#include <glm/vec3.hpp>
 #include <glm/gtc/packing.hpp>
 #include <GL/glew.h>
 #include <fstream>
-#include <vector>
 
 Mesh::Mesh(const std::string& path)
 {
@@ -24,7 +22,7 @@ Mesh::Mesh(const std::string& path)
   };
 
   auto add_triangle = [&](const mobius::proto::material& material,
-                          uint32_t a, uint32_t b, uint32_t c)
+                          uint32_t flags, uint32_t a, uint32_t b, uint32_t c)
   {
     auto va = glm::vec3{
         mesh.vertex(a).x(), mesh.vertex(a).y(), mesh.vertex(a).z()};
@@ -33,35 +31,37 @@ Mesh::Mesh(const std::string& path)
     auto vc = glm::vec3{
         mesh.vertex(c).x(), mesh.vertex(c).y(), mesh.vertex(c).z()};
 
-    auto colour = glm::vec3{
-        material.colour().r(), material.colour().g(), material.colour().b()};
-    auto normal = glm::normalize(glm::cross(vb - va, vc - va));
+    if (flags & mobius::proto::sub_mesh_flags::VISIBLE) {
+      auto colour = glm::vec3{
+          material.colour().r(), material.colour().g(), material.colour().b()};
+      auto normal = glm::normalize(glm::cross(vb - va, vc - va));
 
-    add_vec3(va);
-    add_vec3(normal);
-    add_vec3(colour);
-    add_vec3(vb);
-    add_vec3(normal);
-    add_vec3(colour);
-    add_vec3(vc);
-    add_vec3(normal);
-    add_vec3(colour);
+      add_vec3(va);
+      add_vec3(normal);
+      add_vec3(colour);
+      add_vec3(vb);
+      add_vec3(normal);
+      add_vec3(colour);
+      add_vec3(vc);
+      add_vec3(normal);
+      add_vec3(colour);
 
-    indices.push_back(_vertex_count++);
-    indices.push_back(_vertex_count++);
-    indices.push_back(_vertex_count++);
+      indices.push_back(_vertex_count++);
+      indices.push_back(_vertex_count++);
+      indices.push_back(_vertex_count++);
+    }
+    if (flags & mobius::proto::sub_mesh_flags::PHYSICAL) {
+      _physical.push_back(tri{va, vb, vc});
+    }
   };
 
-  for (const auto& sub_mesh : mesh.sub()) {
-    if (!(sub_mesh.flags() & mobius::proto::sub_mesh_flags::VISIBLE)) {
-      continue;
+  for (const auto& sub : mesh.sub()) {
+    for (const auto& tri : sub.tri()) {
+      add_triangle(sub.material(), sub.flags(), tri.a(), tri.b(), tri.c());
     }
-    for (const auto& tri : sub_mesh.tri()) {
-      add_triangle(sub_mesh.material(), tri.a(), tri.b(), tri.c());
-    }
-    for (const auto& quad: sub_mesh.quad()) {
-      add_triangle(sub_mesh.material(), quad.a(), quad.b(), quad.c());
-      add_triangle(sub_mesh.material(), quad.c(), quad.d(), quad.a());
+    for (const auto& quad: sub.quad()) {
+      add_triangle(sub.material(), sub.flags(), quad.a(), quad.b(), quad.c());
+      add_triangle(sub.material(), sub.flags(), quad.c(), quad.d(), quad.a());
     }
   }
 
@@ -108,4 +108,9 @@ uint32_t Mesh::vao() const
 uint32_t Mesh::vertex_count() const
 {
   return _vertex_count;
+}
+
+const std::vector<Mesh::tri>& Mesh::physical() const
+{
+  return _physical;
 }

@@ -24,6 +24,7 @@ void main()
   intensity = clamp(ambient + intensity, 0., 1.);
 
   float texture =
+      simplex3(2048. * vertex_model) +
       simplex3(1024. * vertex_model) +
       simplex3(512. * vertex_model) +
       simplex3(256. * vertex_model) +
