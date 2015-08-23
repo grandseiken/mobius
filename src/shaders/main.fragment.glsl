@@ -1,5 +1,7 @@
 #include "gamma.glsl.h"
+#include "simplex.glsl.h"
 
+smooth in vec3 vertex_model;
 smooth in vec3 vertex_world;
 flat in vec3 vertex_colour;
 flat in vec3 vertex_normal;
@@ -21,7 +23,19 @@ void main()
   const float ambient = .01;
   intensity = clamp(ambient + intensity, 0., 1.);
 
-  vec3 lit_colour = gamma_correct(intensity * gamma_decorrect(vertex_colour));
+  float texture =
+      simplex3(512. * vertex_model) +
+      simplex3(256. * vertex_model) +
+      simplex3(128. * vertex_model) +
+      simplex3(64. * vertex_model) +
+      simplex3(32. * vertex_model) +
+      simplex3(16. * vertex_model) +
+      simplex3(8. * vertex_model) +
+      simplex3(4. * vertex_model);
+  texture = (texture / 2.5 + 1.) / 2.;
+
+  vec3 lit_colour = gamma_correct(
+      intensity * texture * gamma_decorrect(vertex_colour));
   output_colour = vec4(lit_colour, 1.);
 }
 

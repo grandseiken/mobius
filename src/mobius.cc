@@ -83,16 +83,16 @@ int main()
 
     renderer.clear();
     renderer.world(
-        glm::translate(glm::mat4{1}, glm::vec3{0, 0, 0}) *
+        glm::translate(glm::mat4{1}, glm::vec3{0, 1, 0}) *
         glm::scale(glm::mat4{1}, glm::vec3{1, 1, 1}));
     renderer.mesh(level);
     renderer.world(
-        glm::translate(glm::mat4{1}, glm::vec3{-4, 0, 0}) *
+        glm::translate(glm::mat4{1}, glm::vec3{-4, 1, 0}) *
         glm::rotate(glm::mat4{1}, r, glm::vec3{0, 1, 0}) *
         glm::scale(glm::mat4{1}, glm::vec3{1, 1, 1}));
     renderer.mesh(level);
     renderer.world(
-        glm::translate(glm::mat4{1}, glm::vec3{8, 0, 0}) *
+        glm::translate(glm::mat4{1}, glm::vec3{8, 2, 0}) *
         glm::rotate(glm::mat4{1}, r, glm::vec3{0, 1, 0}) *
         glm::scale(glm::mat4{1}, glm::vec3{2, 2, 2}));
     renderer.mesh(level);

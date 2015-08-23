@@ -9,7 +9,7 @@ vertex: {x:  1, y:  1, z:  1}
 
 sub: {
   material: {
-    colour: {r: .4, g: .48, b: .51}
+    colour: {r: .16, g: .63, b: .60}
   }
   quad: {a: 0, b: 2, c: 3, d: 1}
   quad: {a: 4, b: 5, c: 7, d: 6}
