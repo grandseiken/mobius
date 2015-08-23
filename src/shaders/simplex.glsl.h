@@ -73,28 +73,29 @@ float simplex3(vec3 coord)
   // octahedron.
   vec4 gradient_index = mod(random4_ring_size(index, i1, i2), 49);
 
-  vec4 x = (2. / 7.) * floor(gradient_index / 7.) - 13. / 14.;
-  vec4 y = (2. / 7.) * mod(gradient_index, 7.) - 13. / 14.;
+  // X and Y evenly distributed over [-1, 1].
+  vec4 x = (2. * floor(gradient_index / 7.) - 6.) / 7.;
+  vec4 y = (2. * mod(gradient_index, 7.) - 6.) / 7.;
+  // H in [-1, 1] with H + |X| + |Y| = 1.
   vec4 h = 1. - abs(x) - abs(y);
 
-  vec4 b0 = vec4(x.xy, y.xy);
-  vec4 b1 = vec4(x.zw, y.zw);
+  // -1 for less than 0, +1 for more than 0.
+  vec4 sx = 2. * floor(x) + 1.;
+  vec4 sy = 2. * floor(y) + 1.;
+  // 1 if h <= 0, 0 otherwise.
+  vec4 sh = step(h, vec4(0.));
+  // Swaps the lower corners of the pyramid to form the octahedron.
+  vec4 ax = x - sx * sh;
+  vec4 ay = y - sy * sh;
 
-  vec4 s0 = 2. * floor(b0) + 1.;
-  vec4 s1 = 2. * floor(b1) + 1.;
-  vec4 sh = -step(h, vec4(0.));
-
-  vec4 a0 = b0.xzyw + s0.xzyw * sh.xxyy;
-  vec4 a1 = b1.xzyw + s1.xzyw * sh.zzww;
-
-  vec3 g0 = vec3(a0.xy, h.x);
-  vec3 g1 = vec3(a0.zw, h.y);
-  vec3 g2 = vec3(a1.xy, h.z);
-  vec3 g3 = vec3(a1.zw, h.w);
-
+  vec3 g0 = vec3(ax.x, ay.x, h.x);
+  vec3 g1 = vec3(ax.y, ay.y, h.y);
+  vec3 g2 = vec3(ax.z, ay.z, h.z);
+  vec3 g3 = vec3(ax.w, ay.w, h.w);
   // Fast normalization using Taylor series.
   vec4 isqrt = 1.79284291400159 - 0.85373472095314 *
       vec4(dot(g0, g0), dot(g1, g1), dot(g2, g2), dot(g3, g3));
+
   return interpolate(
       x0, x1, x2, x3,
       g0 * isqrt.x, g1 * isqrt.y, g2 * isqrt.z, g3 * isqrt.w);
