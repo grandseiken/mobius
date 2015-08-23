@@ -7,7 +7,7 @@
 float Collision::coefficient(
     const Mesh& object, const Mesh& environment,
     const glm::mat4x4& object_transform,
-    const glm::vec3& translation) const
+    const glm::vec3& translation, Triangle* blocker) const
 {
   std::vector<Triangle> object_physical;
   for (const auto& t : object.physical()) {
@@ -18,24 +18,31 @@ float Collision::coefficient(
     });
   }
 
+  float bound_scale = 1;
+  auto bound_by = [&](const glm::vec3& v, bool positive,
+                      const Triangle& tri, const Triangle& env_tri)
+  {
+    float scale =
+        ray_tri_intersection(v, positive ? translation : -translation, tri);
+    if (scale < bound_scale) {
+      bound_scale = scale;
+      if (blocker) {
+        *blocker = env_tri;
+      }
+    }
+  };
+
   // This is, of course, very inefficient. We can:
   // - consider vertices alone rather than repeating when shared by triangles
   // - use an acceleration structure (spatial index)
-  float bound_scale = 1;
   for (const auto& to : object_physical) {
     for (const auto& te : environment.physical()) {
-      bound_scale = std::min(
-          bound_scale, ray_tri_intersection(to.a, translation, te));
-      bound_scale = std::min(
-          bound_scale, ray_tri_intersection(to.b, translation, te));
-      bound_scale = std::min(
-          bound_scale, ray_tri_intersection(to.c, translation, te));
-      bound_scale = std::min(
-          bound_scale, ray_tri_intersection(te.a, -translation, to));
-      bound_scale = std::min(
-          bound_scale, ray_tri_intersection(te.b, -translation, to));
-      bound_scale = std::min(
-          bound_scale, ray_tri_intersection(te.c, -translation, to));
+      bound_by(to.a, true, te, te);
+      bound_by(to.b, true, te, te);
+      bound_by(to.c, true, te, te);
+      bound_by(te.a, true, to, te);
+      bound_by(te.b, true, to, te);
+      bound_by(te.c, true, to, te);
     }
   }
   return bound_scale;
@@ -44,10 +51,20 @@ float Collision::coefficient(
 glm::vec3 Collision::translation(
     const Mesh& object, const Mesh& environment,
     const glm::mat4x4& object_transform,
-    const glm::vec3& translation) const
+    const glm::vec3& translation, bool recursive) const
 {
-  return translation *
-      coefficient(object, environment, object_transform, translation);
+  if (!recursive) {
+    return translation * coefficient(
+        object, environment, object_transform, translation, nullptr);
+  }
+
+  Triangle blocker;
+  float scale =
+      coefficient(object, environment, object_transform, translation, &blocker);
+  if (scale >= 1) {
+    return translation;
+  }
+  return scale * translation;
 }
 
 float Collision::ray_tri_intersection(

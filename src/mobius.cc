@@ -6,6 +6,26 @@
 #include "mesh.h"
 #include "collision.h"
 
+glm::ivec2 window_size(const sf::Window& window)
+{
+  return {window.getSize().x, window.getSize().y};
+}
+
+glm::ivec2 mouse_position(const sf::Window& window)
+{
+  return {sf::Mouse::getPosition(window).x, sf::Mouse::getPosition(window).y};
+}
+
+void set_mouse_position(const sf::Window& window, const glm::ivec2& position)
+{
+  sf::Mouse::setPosition(sf::Vector2i{position.x, position.y}, window);
+}
+
+void reset_mouse_position(const sf::Window& window)
+{
+  set_mouse_position(window, window_size(window) / 2);
+}
+
 int main()
 {
   sf::ContextSettings settings;
@@ -19,19 +39,20 @@ int main()
   sf::Window window{sf::VideoMode::getDesktopMode(), "MOBIUS", sf::Style::None};
   window.setVerticalSyncEnabled(true);
   Renderer renderer;
-  renderer.resize(glm::ivec2{window.getSize().x, window.getSize().y});
+  renderer.resize(window_size(window));
   renderer.perspective(3.141592654 / 2, 1. / 1024, 1024);
 
   Collision collision;
   Mesh player{"gen/player.mesh.pb"};
   Mesh level{"gen/level.mesh.pb"};
-  glm::vec3 player_position{0.2, 3, 0.2};
+  glm::vec3 player_position{0, 8, 0};
+  glm::vec3 player_direction{0, 0, 1};
 
   bool forward = false;
   bool backward = false;
   bool left = false;
   bool right = false;
-  float angle = 0.f;
+  bool focus = true;
   float fall_speed = 0.f;
 
   while (window.isOpen()) {
@@ -42,7 +63,13 @@ int main()
            event.key.code == sf::Keyboard::Escape)) {
         window.close();
       } else if (event.type == sf::Event::Resized) {
-        renderer.resize(glm::ivec2{window.getSize().x, window.getSize().y});
+        renderer.resize(window_size(window));
+        reset_mouse_position(window);
+      } else if (event.type == sf::Event::GainedFocus) {
+        focus = true;
+        reset_mouse_position(window);
+      } else if (event.type == sf::Event::LostFocus) {
+        focus = false;
       } else if (event.type == sf::Event::KeyPressed) {
         if (event.key.code == sf::Keyboard::W) {
           forward = true;
@@ -68,12 +95,28 @@ int main()
       }
     }
 
-    angle += (1. / 16) * ((right ? -1 : 0) + (left ? 1 : 0));
-    float speed = (1. / 32) * ((forward ? 1 : 0) + (backward ? -1 : 0));
-    glm::vec3 player_direction{sin(angle), 0, cos(angle)};
-    player_position += collision.translation(
-        player, level,
-        glm::translate(glm::mat4{1}, player_position), speed * player_direction);
+    window.setMouseCursorVisible(!focus);
+    glm::vec3 player_side = glm::cross(player_direction, glm::vec3{0, 1, 0});
+    glm::vec3 player_forward = glm::cross(glm::vec3{0, 1, 0}, player_side);
+    if (focus) {
+      auto offset = (1.f / 2048) * (glm::vec2(mouse_position(window)) -
+                                    glm::vec2(window_size(window)) / 2.f);
+      reset_mouse_position(window);
+
+      player_direction +=
+          offset.x * player_side + offset.y * glm::vec3{0, 1, 0};
+      player_direction = glm::normalize(player_direction);
+    }
+
+    glm::vec3 velocity =
+        player_forward * ((forward ? 1.f : 0.f) + (backward ? -1.f : 0.f)) +
+        player_side * ((right ? 1.f : 0.f) + (left ? -1.f: 0.f));
+    if (velocity != glm::vec3{0, 0, 0}) {
+      velocity = (1.f / 32) * glm::normalize(velocity);
+      player_position += collision.translation(
+          player, level,
+          glm::translate(glm::mat4{1}, player_position), velocity);
+    }
 
     fall_speed = std::min(1. / 4, fall_speed + 1. / 512);
     fall_speed *= collision.coefficient(
