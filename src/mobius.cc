@@ -1,4 +1,5 @@
 #include <SFML/Window.hpp>
+#include <glm/gtc/constants.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/mat4x4.hpp>
 #include <glm/vec3.hpp>
@@ -40,13 +41,13 @@ int main()
   window.setVerticalSyncEnabled(true);
   Renderer renderer;
   renderer.resize(window_size(window));
-  renderer.perspective(3.141592654 / 2, 1. / 1024, 1024);
+  renderer.perspective(glm::pi<float>() / 2, 1. / 1024, 1024);
 
   Collision collision;
   Mesh player{"gen/player.mesh.pb"};
   Mesh level{"gen/level.mesh.pb"};
   glm::vec3 player_position{0, 8, 0};
-  glm::vec3 player_direction{0, 0, 1};
+  glm::vec2 player_angle{0, 0};
 
   bool forward = false;
   bool backward = false;
@@ -96,20 +97,27 @@ int main()
     }
 
     window.setMouseCursorVisible(!focus);
-    glm::vec3 player_side = glm::cross(player_direction, {0, 1, 0});
-    glm::vec3 player_forward = glm::cross({0, 1, 0}, player_side);
     if (focus) {
       auto offset = (1.f / 2048) * (glm::vec2(mouse_position(window)) -
                                     glm::vec2(window_size(window)) / 2.f);
       reset_mouse_position(window);
 
-      // This is wrong - need to respect the orientation of the viewing plane.
-      player_direction +=
-          offset.x * player_side + offset.y * glm::vec3{0, 1, 0};
-      player_direction = glm::normalize(player_direction);
+      static const float epsilon = 1. / 1024;
+      player_angle += offset;
+      player_angle.y = glm::clamp(
+          player_angle.y,
+          -glm::pi<float>() / 2 + epsilon, glm::pi<float>() / 2 - epsilon);
     }
 
-    glm::vec3 velocity =
+    glm::vec3 player_look{
+        cos(player_angle.y) * sin(-player_angle.x),
+        sin(player_angle.y),
+        cos(player_angle.y) * cos(-player_angle.x)};
+
+    auto player_side = glm::cross(player_look, {0, 1, 0});
+    auto player_forward = glm::cross({0, 1, 0}, player_side);
+
+    auto velocity =
         player_forward * ((forward ? 1.f : 0.f) + (backward ? -1.f : 0.f)) +
         player_side * ((right ? 1.f : 0.f) + (left ? -1.f: 0.f));
     if (velocity != glm::vec3{0, 0, 0}) {
@@ -128,7 +136,7 @@ int main()
 
     renderer.camera(
       player_position + glm::vec3{0, .5, 0},
-      player_position + player_direction, {0, 1, 0});
+      player_position + glm::vec3{0, .5, 0} + player_look, {0, 1, 0});
     renderer.light(player_position + glm::vec3{0, .5, 0}, 1.f);
 
     renderer.clear();

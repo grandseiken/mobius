@@ -30,7 +30,7 @@ float Collision::coefficient(
       // This could be computed once only for the actual bounding pair.
       bound_scale = scale;
       if (remaining) {
-        glm::vec3 p_remaining = point_tri_projection(v + p_vector, tri) -
+        auto p_remaining = point_tri_projection(v + p_vector, tri) -
             (v + bound_scale * p_vector);
         *remaining = positive ? p_remaining : -p_remaining;
       }
@@ -71,12 +71,12 @@ glm::vec3 Collision::translation(
     return vector;
   }
 
-  glm::vec3 first_translation = scale * vector;
+  auto first_translation = scale * vector;
   if (glm::l2Norm(remaining) < epsilon) {
     return first_translation;
   }
 
-  glm::mat4x4 next_transform =
+  auto next_transform =
       glm::translate(glm::mat4{1}, first_translation) * object_transform;
   return first_translation + translation(
       object, environment, next_transform, remaining, true);
@@ -91,9 +91,9 @@ float Collision::ray_tri_intersection(
   // Solves for r(t) = t(u, v).
   static const float epsilon = 1. / (1024 * 1024);
 
-  glm::vec3 ab = t.b - t.a;
-  glm::vec3 ac = t.c - t.a;
-  glm::vec3 pv = glm::cross(direction, ac);
+  auto ab = t.b - t.a;
+  auto ac = t.c - t.a;
+  auto pv = glm::cross(direction, ac);
   float determinant = glm::dot(pv, ab);
 
   // If |determinant| is small, ray lies in plane of triangle. If it is
@@ -102,13 +102,13 @@ float Collision::ray_tri_intersection(
     return 2;
   }
 
-  glm::vec3 tv = origin - t.a;
+  auto tv = origin - t.a;
   float u = glm::dot(tv, pv);
   if (u <= 0 || u >= determinant) {
     return 2;
   }
 
-  glm::vec3 qv = glm::cross(tv, ab);
+  auto qv = glm::cross(tv, ab);
   float v = glm::dot(direction, qv);
   if (v <= 0 || u + v >= determinant) {
     return 2;
@@ -122,18 +122,17 @@ glm::vec3 Collision::point_tri_projection(
     const glm::vec3& point, const Triangle& t) const
 {
   // Simplified version of the above.
-  glm::vec3 ab = t.b - t.a;
-  glm::vec3 ac = t.c - t.a;
-  glm::vec3 normal = glm::cross(ab, ac);
+  auto ab = t.b - t.a;
+  auto ac = t.c - t.a;
+  auto normal = glm::cross(ab, ac);
 
-  glm::vec3 pv = glm::cross(normal, ac);
+  auto pv = glm::cross(normal, ac);
   float determinant = glm::dot(pv, ab);
 
-  glm::vec3 tv = point - t.a;
+  auto tv = point - t.a;
   float u = glm::dot(tv, pv) / determinant;
 
-  glm::vec3 qv = glm::cross(tv, ab);
+  auto qv = glm::cross(tv, ab);
   float v = glm::dot(normal, qv) / determinant;
-
   return (1 - u - v) * t.a + u * t.b + v * t.c;
 }
