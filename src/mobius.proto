@@ -46,4 +46,5 @@ message sub_mesh {
 message mesh {
   repeated vec3 vertex = 1;
   repeated sub_mesh sub = 2;
+  vec3 global_scale = 3;
 }

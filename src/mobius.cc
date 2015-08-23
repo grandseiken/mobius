@@ -1,7 +1,10 @@
 #include <SFML/Window.hpp>
 #include <glm/gtc/matrix_transform.hpp>
+#include <glm/mat4x4.hpp>
+#include <glm/vec3.hpp>
 #include "render.h"
 #include "mesh.h"
+#include "collision.h"
 
 int main()
 {
@@ -18,16 +21,17 @@ int main()
   Renderer renderer;
   renderer.resize(glm::ivec2{window.getSize().x, window.getSize().y});
   renderer.perspective(3.141592654 / 2, 1. / 1024, 1024);
-  glm::vec3 camera{0, 0, 4};
+
+  Collision collision;
+  Mesh player{"gen/player.mesh.pb"};
   Mesh level{"gen/level.mesh.pb"};
+  glm::vec3 player_position{0.2, 3, 0.2};
 
   bool forward = false;
   bool backward = false;
   bool left = false;
   bool right = false;
-  bool up = false;
-  bool down = false;
-  float r = 0.f;
+  float angle = 0.f;
 
   while (window.isOpen()) {
     sf::Event event;
@@ -47,10 +51,6 @@ int main()
           left = true;
         } else if (event.key.code == sf::Keyboard::D) {
           right = true;
-        } else if (event.key.code == sf::Keyboard::Up) {
-          up = true;
-        } else if (event.key.code == sf::Keyboard::Down) {
-          down = true;
         }
       } else if (event.type == sf::Event::KeyReleased) {
         if (event.key.code == sf::Keyboard::W) {
@@ -61,40 +61,27 @@ int main()
           left = false;
         } else if (event.key.code == sf::Keyboard::D) {
           right = false;
-        } else if (event.key.code == sf::Keyboard::Up) {
-          up = false;
-        } else if (event.key.code == sf::Keyboard::Down) {
-          down = false;
         }
       }
     }
 
-    auto camera_offset =
-        glm::vec3{ 0,  0, -1} * (forward ? 1.f : 0.f) +
-        glm::vec3{ 0,  0,  1} * (backward ? 1.f : 0.f) +
-        glm::vec3{-1,  0,  0} * (left ? 1.f : 0.f) +
-        glm::vec3{ 1,  0,  0} * (right ? 1.f : 0.f) +
-        glm::vec3{ 0, -1,  0} * (down ? 1.f : 0.f) +
-        glm::vec3{ 0,  1,  0} * (up ? 1.f : 0.f);
-    camera += camera_offset * .05f;
-    r += .01f;
-    renderer.camera(camera, glm::vec3{0, 0, 0}, glm::vec3{0, 1, 0});
-    renderer.light(camera, 1.f);
+    angle += .04 * ((right ? -1 : 0) + (left ? 1 : 0));
+    float speed = .015 * ((forward ? 1 : 0) + (backward ? -1 : 0));
+    glm::vec3 player_direction{sin(angle), 0, cos(angle)};
+    player_position += collision.bound_translation(
+        player, level,
+        glm::translate(glm::mat4{1}, player_position), speed * player_direction);
+    player_position += collision.bound_translation(
+        player, level,
+        glm::translate(glm::mat4{1}, player_position), glm::vec3{0, -.01, 0});
+
+    renderer.camera(
+      player_position + glm::vec3{0, .5, 0},
+      player_position + player_direction, glm::vec3{0, 1, 0});
+    renderer.light(player_position + glm::vec3{0, .5, 0}, 1.f);
 
     renderer.clear();
-    renderer.world(
-        glm::translate(glm::mat4{1}, glm::vec3{0, 1, 0}) *
-        glm::scale(glm::mat4{1}, glm::vec3{1, 1, 1}));
-    renderer.mesh(level);
-    renderer.world(
-        glm::translate(glm::mat4{1}, glm::vec3{-4, 1, 0}) *
-        glm::rotate(glm::mat4{1}, r, glm::vec3{0, 1, 0}) *
-        glm::scale(glm::mat4{1}, glm::vec3{1, 1, 1}));
-    renderer.mesh(level);
-    renderer.world(
-        glm::translate(glm::mat4{1}, glm::vec3{8, 2, 0}) *
-        glm::rotate(glm::mat4{1}, r, glm::vec3{0, 1, 0}) *
-        glm::scale(glm::mat4{1}, glm::vec3{2, 2, 2}));
+    renderer.world(glm::mat4{1});
     renderer.mesh(level);
     renderer.grain(0.0625);
     renderer.render();

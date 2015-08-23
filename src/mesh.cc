@@ -31,6 +31,17 @@ Mesh::Mesh(const std::string& path)
     auto vc = glm::vec3{
         mesh.vertex(c).x(), mesh.vertex(c).y(), mesh.vertex(c).z()};
 
+    if (mesh.has_global_scale()) {
+      auto scale = glm::vec3{
+          mesh.global_scale().x(),
+          mesh.global_scale().y(),
+          mesh.global_scale().z(),
+      };
+      va *= scale;
+      vb *= scale;
+      vc *= scale;
+    }
+
     if (flags & mobius::proto::sub_mesh_flags::VISIBLE) {
       auto colour = glm::vec3{
           material.colour().r(), material.colour().g(), material.colour().b()};
@@ -51,7 +62,7 @@ Mesh::Mesh(const std::string& path)
       indices.push_back(_vertex_count++);
     }
     if (flags & mobius::proto::sub_mesh_flags::PHYSICAL) {
-      _physical.push_back(tri{va, vb, vc});
+      _physical.push_back(Triangle{va, vb, vc});
     }
   };
 
@@ -110,7 +121,7 @@ uint32_t Mesh::vertex_count() const
   return _vertex_count;
 }
 
-const std::vector<Mesh::tri>& Mesh::physical() const
+const std::vector<Triangle>& Mesh::physical() const
 {
   return _physical;
 }
