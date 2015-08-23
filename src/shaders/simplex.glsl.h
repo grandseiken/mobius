@@ -1,22 +1,48 @@
+// Adapted from: https://github.com/ashima/webgl-noise
+// which has the following license:
+//
+// Copyright (C) 2011 by Ashima Arts (Simplex noise)
+// Copyright (C) 2011 by Stefan Gustavson (Classic noise)
+//
+// Permission is hereby granted, free of charge, to any person obtaining a copy
+// of this software and associated documentation files (the "Software"), to deal
+// in the Software without restriction, including without limitation the rights
+// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+// copies of the Software, and to permit persons to whom the Software is
+// furnished to do so, subject to the following conditions:
+//
+// The above copyright notice and this permission notice shall be included in
+// all copies or substantial portions of the Software.
+//
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+// THE SOFTWARE.
+
 // Must be small enough that permute(x) can be calculated without overflowing.
-const int permutation_prime_factor = 59;
+// We can use something higher with integers, but it's slow.
+const int permutation_prime_factor = 17;
 const int permutation_ring_size =
     permutation_prime_factor * permutation_prime_factor;
 
-ivec4 permute(ivec4 x)
+vec4 permute(vec4 x)
 {
-  return (1 + x * (1 + 2 * x * permutation_prime_factor)) %
-      permutation_ring_size;
+  return mod(
+      1 + x * (1 + 2 * x * permutation_prime_factor), permutation_ring_size);
 }
 
-ivec3 and3(bvec3 a, bvec3 b)
+// Get the permutation: four "random" numbers in the range
+// [0, permutation_ring_size).
+vec4 random4_ring_size(vec3 i0, vec3 i1, vec3 i2)
 {
-  return min(ivec3(a), ivec3(b));
-}
-
-ivec3 or3(bvec3 a, bvec3 b)
-{
-  return max(ivec3(a), ivec3(b));
+  i0 = mod(i0, permutation_ring_size);
+  return
+      permute(i0.x + vec4(0, i1.x, i2.x, 1) +
+      permute(i0.y + vec4(0, i1.y, i2.y, 1) +
+      permute(i0.z + vec4(0, i1.z, i2.z, 1))));
 }
 
 float interpolate(vec3 x0, vec3 x1, vec3 x2, vec3 x3,
@@ -28,24 +54,16 @@ float interpolate(vec3 x0, vec3 x1, vec3 x2, vec3 x3,
       vec4(dot(g0, x0), dot(g1, x1), dot(g2, x2), dot(g3, x3)));
 }
 
-// Get the permutation: four "random" numbers in the range [0, 289).
-ivec4 random4_289(ivec3 i0, ivec3 i1, ivec3 i2)
-{
-  i0 = ivec3(mod(i0, float(permutation_ring_size)));
-  return
-      permute(i0.x + ivec4(0, i1.x, i2.x, 1) +
-      permute(i0.y + ivec4(0, i1.y, i2.y, 1) +
-      permute(i0.z + ivec4(0, i1.z, i2.z, 1))));
-}
-
 float simplex3(vec3 coord)
 {
   // Find index and corners in the simplex grid.
-  ivec3 index = ivec3(floor(coord + dot(coord, vec3(1. / 3.))));
+  vec3 index = floor(coord + dot(coord, vec3(1. / 3.)));
   vec3 x0 = coord - index + dot(index, vec3(1. / 6.));
 
-  ivec3 i1 = and3(greaterThanEqual(x0, x0.yzx), greaterThan(x0, x0.zxy));
-  ivec3 i2 = or3(greaterThanEqual(x0, x0.yzx), greaterThan(x0, x0.zxy));
+  vec3 order = step(x0.yzx, x0.xyz);
+  vec3 order_inv = 1.0 - order;
+  vec3 i1 = min(order.xyz, order_inv.zxy);
+  vec3 i2 = max(order.xyz, order_inv.zxy);
 
   vec3 x1 = x0 + 1. / 6. - i1;
   vec3 x2 = x0 + 1. / 3. - i2;
@@ -53,10 +71,10 @@ float simplex3(vec3 coord)
 
   // Gradients to choose from are 7x7 points over a square mapped onto an
   // octahedron.
-  ivec4 gradient_index = random4_289(index, i1, i2) % 49;
+  vec4 gradient_index = mod(random4_ring_size(index, i1, i2), 49);
 
-  vec4 x = (2. / 7.) * (gradient_index / 7 - 1);
-  vec4 y = (2. / 7.) * (gradient_index % 7 - 1);
+  vec4 x = (2. / 7.) * floor(gradient_index / 7.) - 13. / 14.;
+  vec4 y = (2. / 7.) * mod(gradient_index, 7.) - 13. / 14.;
   vec4 h = 1. - abs(x) - abs(y);
 
   vec4 b0 = vec4(x.xy, y.xy);
@@ -69,10 +87,15 @@ float simplex3(vec3 coord)
   vec4 a0 = b0.xzyw + s0.xzyw * sh.xxyy;
   vec4 a1 = b1.xzyw + s1.xzyw * sh.zzww;
 
-  vec3 g0 = normalize(vec3(a0.xy, h.x));
-  vec3 g1 = normalize(vec3(a0.zw, h.y));
-  vec3 g2 = normalize(vec3(a1.xy, h.z));
-  vec3 g3 = normalize(vec3(a1.zw, h.w));
+  vec3 g0 = vec3(a0.xy, h.x);
+  vec3 g1 = vec3(a0.zw, h.y);
+  vec3 g2 = vec3(a1.xy, h.z);
+  vec3 g3 = vec3(a1.zw, h.w);
 
-  return interpolate(x0, x1, x2, x3, g0, g1, g2, g3);
+  // Fast normalization using Taylor series.
+  vec4 isqrt = 1.79284291400159 - 0.85373472095314 *
+      vec4(dot(g0, g0), dot(g1, g1), dot(g2, g2), dot(g3, g3));
+  return interpolate(
+      x0, x1, x2, x3,
+      g0 * isqrt.x, g1 * isqrt.y, g2 * isqrt.z, g3 * isqrt.w);
 }
