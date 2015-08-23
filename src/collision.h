@@ -8,7 +8,12 @@ struct Triangle;
 class Mesh;
 class Collision {
 public:
-  glm::vec3 bound_translation(
+  float coefficient(
+    const Mesh& object, const Mesh& environment,
+    const glm::mat4x4& object_transform,
+    const glm::vec3& translation) const;
+
+  glm::vec3 translation(
     const Mesh& object, const Mesh& environment,
     const glm::mat4x4& object_transform,
     const glm::vec3& translation) const;

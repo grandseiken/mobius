@@ -4,7 +4,7 @@
 #include <glm/gtc/packing.hpp>
 #include <vector>
 
-glm::vec3 Collision::bound_translation(
+float Collision::coefficient(
     const Mesh& object, const Mesh& environment,
     const glm::mat4x4& object_transform,
     const glm::vec3& translation) const
@@ -21,7 +21,7 @@ glm::vec3 Collision::bound_translation(
   // This is, of course, very inefficient. We can:
   // - consider vertices alone rather than repeating when shared by triangles
   // - use an acceleration structure (spatial index)
-  float bound_scale = 2;
+  float bound_scale = 1;
   for (const auto& to : object_physical) {
     for (const auto& te : environment.physical()) {
       bound_scale = std::min(
@@ -38,7 +38,16 @@ glm::vec3 Collision::bound_translation(
           bound_scale, ray_tri_intersection(te.c, -translation, to));
     }
   }
-  return bound_scale * translation;
+  return bound_scale;
+}
+
+glm::vec3 Collision::translation(
+    const Mesh& object, const Mesh& environment,
+    const glm::mat4x4& object_transform,
+    const glm::vec3& translation) const
+{
+  return translation *
+      coefficient(object, environment, object_transform, translation);
 }
 
 float Collision::ray_tri_intersection(

@@ -32,6 +32,7 @@ int main()
   bool left = false;
   bool right = false;
   float angle = 0.f;
+  float fall_speed = 0.f;
 
   while (window.isOpen()) {
     sf::Event event;
@@ -51,6 +52,8 @@ int main()
           left = true;
         } else if (event.key.code == sf::Keyboard::D) {
           right = true;
+        } else if (event.key.code == sf::Keyboard::Space) {
+          fall_speed = -1. / 16;
         }
       } else if (event.type == sf::Event::KeyReleased) {
         if (event.key.code == sf::Keyboard::W) {
@@ -65,15 +68,19 @@ int main()
       }
     }
 
-    angle += .04 * ((right ? -1 : 0) + (left ? 1 : 0));
-    float speed = .015 * ((forward ? 1 : 0) + (backward ? -1 : 0));
+    angle += (1. / 16) * ((right ? -1 : 0) + (left ? 1 : 0));
+    float speed = (1. / 32) * ((forward ? 1 : 0) + (backward ? -1 : 0));
     glm::vec3 player_direction{sin(angle), 0, cos(angle)};
-    player_position += collision.bound_translation(
+    player_position += collision.translation(
         player, level,
         glm::translate(glm::mat4{1}, player_position), speed * player_direction);
-    player_position += collision.bound_translation(
+
+    fall_speed = std::min(1. / 4, fall_speed + 1. / 512);
+    fall_speed *= collision.coefficient(
         player, level,
-        glm::translate(glm::mat4{1}, player_position), glm::vec3{0, -.01, 0});
+        glm::translate(glm::mat4{1}, player_position),
+        -glm::vec3{0, fall_speed, 0});
+    player_position -= glm::vec3{0, fall_speed, 0};
 
     renderer.camera(
       player_position + glm::vec3{0, .5, 0},
@@ -83,7 +90,7 @@ int main()
     renderer.clear();
     renderer.world(glm::mat4{1});
     renderer.mesh(level);
-    renderer.grain(0.0625);
+    renderer.grain(1. / 16);
     renderer.render();
     window.display();
   }
