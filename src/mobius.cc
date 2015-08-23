@@ -44,8 +44,8 @@ int main()
   renderer.perspective(glm::pi<float>() / 2, 1. / 1024, 1024);
 
   Collision collision;
-  Mesh player{"gen/player.mesh.pb"};
-  Mesh level{"gen/level.mesh.pb"};
+  Mesh player{"gen/data/player.mesh.pb"};
+  Mesh level{"gen/data/level.mesh.pb"};
   glm::vec3 player_position{0, 8, 0};
   glm::vec2 player_angle{0, 0};
 

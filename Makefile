@@ -28,12 +28,12 @@ LFLAGS=\
 # File listings.
 CC_SOURCE_FILES=$(wildcard $(SRCDIR)/*.cc)
 PROTO_FILES=$(wildcard $(SRCDIR)/*.proto)
-PROTO_TEXT_FILES=$(wildcard $(SRCDIR)/*.pb)
-PROTO_DATA_FILES=$(subst $(SRCDIR)/,$(GENDIR)/,$(PROTO_TEXT_FILES))
+PROTO_TEXT_FILES=$(wildcard $(SRCDIR)/data/*.pb)
 SHADER_FILES=$(wildcard $(SRCDIR)/shaders/*.glsl)
 SHADER_H_FILES=$(wildcard $(SRCDIR)/shaders/*.glsl.h)
 PROTO_OUTPUTS=$(subst $(SRCDIR)/,$(GENDIR)/,$(PROTO_FILES:.proto=.pb.cc))
 SHADER_OUTPUTS=$(subst $(SRCDIR)/,$(GENDIR)/,$(SHADER_FILES:.glsl=.glsl.h))
+PROTO_DATA_FILES=$(subst $(SRCDIR)/,$(GENDIR)/,$(PROTO_TEXT_FILES))
 CC_GENERATED_FILES=$(PROTO_OUTPUTS)
 
 H_FILES=$(wildcard $(SRCDIR)/*.h)
@@ -62,7 +62,7 @@ include dependencies/makelib/Makefile
 
 # Master targets.
 .PHONY: all
-all: $(BINARIES)
+all: data $(BINARIES)
 .PHONY: data
 data: $(PROTO_DATA_FILES)
 .PHONY: clean
