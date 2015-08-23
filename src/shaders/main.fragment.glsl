@@ -24,6 +24,7 @@ void main()
   intensity = clamp(ambient + intensity, 0., 1.);
 
   float texture =
+      simplex3(1024. * vertex_model) +
       simplex3(512. * vertex_model) +
       simplex3(256. * vertex_model) +
       simplex3(128. * vertex_model) +
@@ -32,7 +33,7 @@ void main()
       simplex3(16. * vertex_model) +
       simplex3(8. * vertex_model) +
       simplex3(4. * vertex_model);
-  texture = (texture / 2.5 + 1.) / 2.;
+  texture = (texture / 4. + 1.) / 2.;
 
   vec3 lit_colour = gamma_correct(
       intensity * texture * gamma_decorrect(vertex_colour));

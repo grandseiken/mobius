@@ -8,6 +8,7 @@ vertex: {x: -1, y:  1, z:  1}
 vertex: {x:  1, y:  1, z:  1}
 
 sub: {
+  flags: 3
   material: {
     colour: {r: .16, g: .63, b: .60}
   }

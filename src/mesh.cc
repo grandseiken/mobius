@@ -53,6 +53,9 @@ Mesh::Mesh(const std::string& path)
   };
 
   for (const auto& sub_mesh : mesh.sub()) {
+    if (!(sub_mesh.flags() & mobius::proto::sub_mesh_flags::VISIBLE)) {
+      continue;
+    }
     for (const auto& tri : sub_mesh.tri()) {
       add_triangle(sub_mesh.material(), tri.a(), tri.b(), tri.c());
     }
@@ -71,10 +74,38 @@ Mesh::Mesh(const std::string& path)
   glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, _ibo);
   glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(GLushort) * indices.size(),
                indices.data(), GL_STATIC_DRAW);
+
+  glGenVertexArrays(1, &_vao);
+  glBindVertexArray(_vao);
+
+  glEnableVertexAttribArray(0);
+  glEnableVertexAttribArray(1);
+  glEnableVertexAttribArray(2);
+
+  glBindBuffer(GL_ARRAY_BUFFER, _vbo);
+  glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 9 * sizeof(float),
+                        reinterpret_cast<void*>(sizeof(float) * 0));
+  glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 9 * sizeof(float),
+                        reinterpret_cast<void*>(sizeof(float) * 3));
+  glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, 9 * sizeof(float),
+                        reinterpret_cast<void*>(sizeof(float) * 6));
+  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, _ibo);
+  glBindVertexArray(0);
 }
 
 Mesh::~Mesh()
 {
   glDeleteBuffers(1, &_vbo);
   glDeleteBuffers(1, &_ibo);
+  glDeleteVertexArrays(1, &_vao);
+}
+
+uint32_t Mesh::vao() const
+{
+  return _vao;
+}
+
+uint32_t Mesh::vertex_count() const
+{
+  return _vertex_count;
 }

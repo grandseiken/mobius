@@ -129,8 +129,14 @@ Renderer::Renderer()
   glBufferData(GL_ELEMENT_ARRAY_BUFFER,
                sizeof(quad_indices), quad_indices, GL_STATIC_DRAW);
 
-  glGenVertexArrays(1, &_vao);
-  glBindVertexArray(_vao);
+  glGenVertexArrays(1, &_quad_vao);
+  glBindVertexArray(_quad_vao);
+
+  glEnableVertexAttribArray(0);
+  glBindBuffer(GL_ARRAY_BUFFER, _quad_vbo);
+  glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, 0, 0);
+  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, _quad_ibo);
+  glBindVertexArray(0);
 }
 
 Renderer::~Renderer()
@@ -144,7 +150,7 @@ Renderer::~Renderer()
   glDeleteProgram(_grain_program);
   glDeleteBuffers(1, &_quad_vbo);
   glDeleteBuffers(1, &_quad_ibo);
-  glDeleteVertexArrays(1, &_vao);
+  glDeleteVertexArrays(1, &_quad_vao);
 }
 
 void Renderer::resize(const glm::ivec2& dimensions)
@@ -261,23 +267,8 @@ void Renderer::mesh(const Mesh& mesh) const
   glUniform1f(
       glGetUniformLocation(_main_program, "light_intensity"), _light.intensity);
 
-  glEnableVertexAttribArray(0);
-  glEnableVertexAttribArray(1);
-  glEnableVertexAttribArray(2);
-
-  glBindBuffer(GL_ARRAY_BUFFER, mesh._vbo);
-  glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 9 * sizeof(float),
-                        reinterpret_cast<void*>(sizeof(float) * 0));
-  glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 9 * sizeof(float),
-                        reinterpret_cast<void*>(sizeof(float) * 3));
-  glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, 9 * sizeof(float),
-                        reinterpret_cast<void*>(sizeof(float) * 6));
-  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mesh._ibo);
-  glDrawElements(GL_TRIANGLES, mesh._vertex_count, GL_UNSIGNED_SHORT, 0);
-
-  glDisableVertexAttribArray(0);
-  glDisableVertexAttribArray(1);
-  glDisableVertexAttribArray(2);
+  glBindVertexArray(mesh.vao());
+  glDrawElements(GL_TRIANGLES, mesh.vertex_count(), GL_UNSIGNED_SHORT, 0);
   glUseProgram(0);
 }
 
@@ -291,14 +282,9 @@ void Renderer::grain(float amount) const
   glEnable(GL_BLEND);
   glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
-  glEnableVertexAttribArray(0);
-  glBindBuffer(GL_ARRAY_BUFFER, _quad_vbo);
-  glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, 0, 0);
-  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, _quad_ibo);
+  glBindVertexArray(_quad_vao);
   glDrawElements(GL_TRIANGLES, sizeof(quad_indices) / sizeof(quad_indices[0]),
                  GL_UNSIGNED_SHORT, 0);
-
-  glDisableVertexAttribArray(0);
   glUseProgram(0);
 }
 

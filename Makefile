@@ -90,11 +90,11 @@ $(GENDIR)/%.pb.cc: \
 
 # Proto mesh files.
 $(GENDIR)/%.mesh.pb: \
-  $(SRCDIR)/%.mesh.pb
+  $(SRCDIR)/%.mesh.pb $(PROTO_FILES)
 	$(MKDIR)
 	@echo Processing ./$<
 	cat ./$< | $(PROTOC) --proto_path=$(SRCDIR) \
-	    --encode=mobius.proto.mesh $(PROTO_FILES) > $@ || rm $@
+	    --encode=mobius.proto.mesh $(PROTO_FILES) > $@ || (rm $@; false)
 
 # Shader files.
 $(GENDIR)/%.glsl: \

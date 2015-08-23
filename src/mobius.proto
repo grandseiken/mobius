@@ -26,14 +26,21 @@ message quad {
   uint32 d = 4;
 }
 
+enum sub_mesh_flags {
+  NONE = 0;
+  PHYSICAL = 1;
+  VISIBLE = 2;
+}
+
 message material {
   rgb colour = 1;
 }
 
 message sub_mesh {
-  material material = 1;
-  repeated tri tri = 2;
-  repeated quad quad = 3;
+  uint32 flags = 1;
+  material material = 2;
+  repeated tri tri = 3;
+  repeated quad quad = 4;
 }
 
 message mesh {
