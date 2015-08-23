@@ -103,6 +103,7 @@ int main()
                                     glm::vec2(window_size(window)) / 2.f);
       reset_mouse_position(window);
 
+      // This is wrong - need to respect the orientation of the viewing plane.
       player_direction +=
           offset.x * player_side + offset.y * glm::vec3{0, 1, 0};
       player_direction = glm::normalize(player_direction);
@@ -115,7 +116,8 @@ int main()
       velocity = (1.f / 32) * glm::normalize(velocity);
       player_position += collision.translation(
           player, level,
-          glm::translate(glm::mat4{1}, player_position), velocity);
+          glm::translate(glm::mat4{1}, player_position),
+          velocity, true /* recursive */);
     }
 
     fall_speed = std::min(1. / 4, fall_speed + 1. / 512);

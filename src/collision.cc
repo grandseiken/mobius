@@ -1,13 +1,15 @@
 #include "collision.h"
 #include "mesh.h"
 #include <glm/vec4.hpp>
+#include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/packing.hpp>
+#include <glm/gtx/norm.hpp>
 #include <vector>
 
 float Collision::coefficient(
     const Mesh& object, const Mesh& environment,
     const glm::mat4x4& object_transform,
-    const glm::vec3& translation, Triangle* blocker) const
+    const glm::vec3& vector, glm::vec3* remaining) const
 {
   std::vector<Triangle> object_physical;
   for (const auto& t : object.physical()) {
@@ -19,15 +21,18 @@ float Collision::coefficient(
   }
 
   float bound_scale = 1;
-  auto bound_by = [&](const glm::vec3& v, bool positive,
-                      const Triangle& tri, const Triangle& env_tri)
+  auto bound_by = [&](const glm::vec3& v, bool positive, const Triangle& tri)
   {
-    float scale =
-        ray_tri_intersection(v, positive ? translation : -translation, tri);
+    glm::vec3 p_vector = positive ? vector : -vector;
+    float scale = ray_tri_intersection(v, p_vector, tri);
+
     if (scale < bound_scale) {
+      // This could be computed once only for the actual bounding pair.
       bound_scale = scale;
-      if (blocker) {
-        *blocker = env_tri;
+      if (remaining) {
+        glm::vec3 p_remaining = point_tri_projection(v + p_vector, tri) -
+            (v + bound_scale * p_vector);
+        *remaining = positive ? p_remaining : -p_remaining;
       }
     }
   };
@@ -37,12 +42,12 @@ float Collision::coefficient(
   // - use an acceleration structure (spatial index)
   for (const auto& to : object_physical) {
     for (const auto& te : environment.physical()) {
-      bound_by(to.a, true, te, te);
-      bound_by(to.b, true, te, te);
-      bound_by(to.c, true, te, te);
-      bound_by(te.a, true, to, te);
-      bound_by(te.b, true, to, te);
-      bound_by(te.c, true, to, te);
+      bound_by(to.a, true, te);
+      bound_by(to.b, true, te);
+      bound_by(to.c, true, te);
+      bound_by(te.a, true, to);
+      bound_by(te.b, true, to);
+      bound_by(te.c, true, to);
     }
   }
   return bound_scale;
@@ -51,20 +56,30 @@ float Collision::coefficient(
 glm::vec3 Collision::translation(
     const Mesh& object, const Mesh& environment,
     const glm::mat4x4& object_transform,
-    const glm::vec3& translation, bool recursive) const
+    const glm::vec3& vector, bool recursive) const
 {
+  static const float epsilon = 1. / (1024 * 1024);
   if (!recursive) {
-    return translation * coefficient(
-        object, environment, object_transform, translation, nullptr);
+    return vector * coefficient(
+        object, environment, object_transform, vector, nullptr);
   }
 
-  Triangle blocker;
-  float scale =
-      coefficient(object, environment, object_transform, translation, &blocker);
+  glm::vec3 remaining;
+  float scale = coefficient(
+      object, environment, object_transform, vector, &remaining);
   if (scale >= 1) {
-    return translation;
+    return vector;
   }
-  return scale * translation;
+
+  glm::vec3 first_translation = scale * vector;
+  if (glm::l2Norm(remaining) < epsilon) {
+    return first_translation;
+  }
+
+  glm::mat4x4 next_transform =
+      glm::translate(glm::mat4{1}, first_translation) * object_transform;
+  return first_translation + translation(
+      object, environment, next_transform, remaining, true);
 }
 
 float Collision::ray_tri_intersection(
@@ -101,4 +116,24 @@ float Collision::ray_tri_intersection(
 
   float bound = glm::dot(ac, qv) / determinant;
   return bound < 0 ? 2.f : std::max(0.f, bound);
+}
+
+glm::vec3 Collision::point_tri_projection(
+    const glm::vec3& point, const Triangle& t) const
+{
+  // Simplified version of the above.
+  glm::vec3 ab = t.b - t.a;
+  glm::vec3 ac = t.c - t.a;
+  glm::vec3 normal = glm::cross(ab, ac);
+
+  glm::vec3 pv = glm::cross(normal, ac);
+  float determinant = glm::dot(pv, ab);
+
+  glm::vec3 tv = point - t.a;
+  float u = glm::dot(tv, pv) / determinant;
+
+  glm::vec3 qv = glm::cross(tv, ab);
+  float v = glm::dot(normal, qv) / determinant;
+
+  return (1 - u - v) * t.a + u * t.b + v * t.c;
 }
