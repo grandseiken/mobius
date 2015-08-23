@@ -88,15 +88,10 @@ float simplex3(vec3 coord)
   vec4 ax = x - sx * sh;
   vec4 ay = y - sy * sh;
 
-  vec3 g0 = vec3(ax.x, ay.x, h.x);
-  vec3 g1 = vec3(ax.y, ay.y, h.y);
-  vec3 g2 = vec3(ax.z, ay.z, h.z);
-  vec3 g3 = vec3(ax.w, ay.w, h.w);
-  // Fast normalization using Taylor series.
-  vec4 isqrt = 1.79284291400159 - 0.85373472095314 *
-      vec4(dot(g0, g0), dot(g1, g1), dot(g2, g2), dot(g3, g3));
+  vec3 g0 = normalize(vec3(ax.x, ay.x, h.x));
+  vec3 g1 = normalize(vec3(ax.y, ay.y, h.y));
+  vec3 g2 = normalize(vec3(ax.z, ay.z, h.z));
+  vec3 g3 = normalize(vec3(ax.w, ay.w, h.w));
 
-  return interpolate(
-      x0, x1, x2, x3,
-      g0 * isqrt.x, g1 * isqrt.y, g2 * isqrt.z, g3 * isqrt.w);
+  return interpolate(x0, x1, x2, x3, g0, g1, g2, g3);
 }
