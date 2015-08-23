@@ -1,22 +1,13 @@
-vertex: {x: -2, y: -2, z: -2}
-vertex: {x:  2, y: -2, z: -2}
-vertex: {x: -2, y:  2, z: -2}
-vertex: {x:  2, y:  2, z: -2}
-vertex: {x: -2, y: -2, z:  2}
-vertex: {x:  2, y: -2, z:  2}
-vertex: {x: -2, y:  2, z:  2}
-vertex: {x:  2, y:  2, z:  2}
+vertex: {x: -1, y: -1, z: -1}
+vertex: {x:  1, y: -1, z: -1}
+vertex: {x: -1, y:  1, z: -1}
+vertex: {x:  1, y:  1, z: -1}
+vertex: {x: -1, y: -1, z:  1}
+vertex: {x:  1, y: -1, z:  1}
+vertex: {x: -1, y:  1, z:  1}
+vertex: {x:  1, y:  1, z:  1}
 
-vertex: {x: -8, y: -2, z: -8}
-vertex: {x:  8, y: -2, z: -8}
-vertex: {x: -8, y: -2, z:  8}
-vertex: {x:  8, y: -2, z:  8}
-
-sub: {
-  flags: 3
-  material: {
-    colour: {r: .16, g: .63, b: .60}
-  }
+faces: {
   quad: {a: 0, b: 2, c: 3, d: 1}
   quad: {a: 4, b: 5, c: 7, d: 6}
   quad: {a: 0, b: 4, c: 6, d: 2}
@@ -25,10 +16,21 @@ sub: {
   quad: {a: 2, b: 6, c: 7, d: 3}
 }
 
-sub: {
+submesh: {
+  flags: 3
+  material: {
+    colour: {r: .16, g: .63, b: .60}
+  }
+  faces: 0
+  scale: {x: 2, y: 2, z: 2}
+}
+
+submesh: {
   flags: 3
   material: {
     colour: {r: .35, g: .43, b: .46}
   }
-  quad: {a: 8, b: 10, c: 11, d: 9}
+  faces: 0
+  scale: {x: 8, y: -8, z: 8}
+  translate: {x: 0, y: 6, z: 0}
 }

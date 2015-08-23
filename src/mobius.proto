@@ -26,25 +26,32 @@ message quad {
   uint32 d = 4;
 }
 
-enum sub_mesh_flags {
-  NONE = 0;
-  PHYSICAL = 1;
-  VISIBLE = 2;
-}
-
 message material {
   rgb colour = 1;
 }
 
-message sub_mesh {
+message faces {
+  repeated tri tri = 1;
+  repeated quad quad = 2;
+}
+
+message submesh {
+  enum flag {
+    NONE = 0;
+    PHYSICAL = 1;
+    VISIBLE = 2;
+  }
+
   uint32 flags = 1;
   material material = 2;
-  repeated tri tri = 3;
-  repeated quad quad = 4;
+
+  uint32 faces = 3;
+  vec3 scale = 4;
+  vec3 translate = 5;
 }
 
 message mesh {
   repeated vec3 vertex = 1;
-  repeated sub_mesh sub = 2;
-  vec3 global_scale = 3;
+  repeated faces faces = 2;
+  repeated submesh submesh = 3;
 }

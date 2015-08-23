@@ -18,7 +18,7 @@ glm::ivec2 mouse_position(const sf::Window& window)
 
 void set_mouse_position(const sf::Window& window, const glm::ivec2& position)
 {
-  sf::Mouse::setPosition(sf::Vector2i{position.x, position.y}, window);
+  sf::Mouse::setPosition({position.x, position.y}, window);
 }
 
 void reset_mouse_position(const sf::Window& window)
@@ -96,8 +96,8 @@ int main()
     }
 
     window.setMouseCursorVisible(!focus);
-    glm::vec3 player_side = glm::cross(player_direction, glm::vec3{0, 1, 0});
-    glm::vec3 player_forward = glm::cross(glm::vec3{0, 1, 0}, player_side);
+    glm::vec3 player_side = glm::cross(player_direction, {0, 1, 0});
+    glm::vec3 player_forward = glm::cross({0, 1, 0}, player_side);
     if (focus) {
       auto offset = (1.f / 2048) * (glm::vec2(mouse_position(window)) -
                                     glm::vec2(window_size(window)) / 2.f);
@@ -116,24 +116,23 @@ int main()
       velocity = (1.f / 32) * glm::normalize(velocity);
       player_position += collision.translation(
           player, level,
-          glm::translate(glm::mat4{1}, player_position),
+          glm::translate(glm::mat4{}, player_position),
           velocity, true /* recursive */);
     }
 
     fall_speed = std::min(1. / 4, fall_speed + 1. / 512);
     fall_speed *= collision.coefficient(
         player, level,
-        glm::translate(glm::mat4{1}, player_position),
-        -glm::vec3{0, fall_speed, 0});
+        glm::translate(glm::mat4{}, player_position), {0, -fall_speed, 0});
     player_position -= glm::vec3{0, fall_speed, 0};
 
     renderer.camera(
       player_position + glm::vec3{0, .5, 0},
-      player_position + player_direction, glm::vec3{0, 1, 0});
+      player_position + player_direction, {0, 1, 0});
     renderer.light(player_position + glm::vec3{0, .5, 0}, 1.f);
 
     renderer.clear();
-    renderer.world(glm::mat4{1});
+    renderer.world(glm::mat4{});
     renderer.mesh(level);
     renderer.grain(1. / 16);
     renderer.render();

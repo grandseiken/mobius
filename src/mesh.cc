@@ -1,9 +1,23 @@
 #include "mesh.h"
 #include "../gen/mobius.pb.h"
 
+#include <glm/mat4x4.hpp>
+#include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/packing.hpp>
 #include <GL/glew.h>
 #include <fstream>
+
+namespace {
+  glm::vec3 load_vec3(const mobius::proto::vec3& v)
+  {
+    return {v.x(), v.y(), v.z()};
+  }
+
+  glm::vec3 load_rgb(const mobius::proto::rgb& v)
+  {
+    return {v.r(), v.g(), v.b()};
+  }
+}
 
 Mesh::Mesh(const std::string& path)
 {
@@ -22,29 +36,15 @@ Mesh::Mesh(const std::string& path)
   };
 
   auto add_triangle = [&](const mobius::proto::material& material,
+                          const glm::mat4& transform,
                           uint32_t flags, uint32_t a, uint32_t b, uint32_t c)
   {
-    auto va = glm::vec3{
-        mesh.vertex(a).x(), mesh.vertex(a).y(), mesh.vertex(a).z()};
-    auto vb = glm::vec3{
-        mesh.vertex(b).x(), mesh.vertex(b).y(), mesh.vertex(b).z()};
-    auto vc = glm::vec3{
-        mesh.vertex(c).x(), mesh.vertex(c).y(), mesh.vertex(c).z()};
+    auto va = glm::vec3(transform * glm::vec4(load_vec3(mesh.vertex(a)), 1.));
+    auto vb = glm::vec3(transform * glm::vec4(load_vec3(mesh.vertex(b)), 1.));
+    auto vc = glm::vec3(transform * glm::vec4(load_vec3(mesh.vertex(c)), 1.));
 
-    if (mesh.has_global_scale()) {
-      auto scale = glm::vec3{
-          mesh.global_scale().x(),
-          mesh.global_scale().y(),
-          mesh.global_scale().z(),
-      };
-      va *= scale;
-      vb *= scale;
-      vc *= scale;
-    }
-
-    if (flags & mobius::proto::sub_mesh_flags::VISIBLE) {
-      auto colour = glm::vec3{
-          material.colour().r(), material.colour().g(), material.colour().b()};
+    if (flags & mobius::proto::submesh::VISIBLE) {
+      auto colour = load_rgb(material.colour());
       auto normal = glm::normalize(glm::cross(vb - va, vc - va));
 
       add_vec3(va);
@@ -61,18 +61,31 @@ Mesh::Mesh(const std::string& path)
       indices.push_back(_vertex_count++);
       indices.push_back(_vertex_count++);
     }
-    if (flags & mobius::proto::sub_mesh_flags::PHYSICAL) {
-      _physical.push_back(Triangle{va, vb, vc});
+    if (flags & mobius::proto::submesh::PHYSICAL) {
+      _physical.push_back({va, vb, vc});
     }
   };
 
-  for (const auto& sub : mesh.sub()) {
-    for (const auto& tri : sub.tri()) {
-      add_triangle(sub.material(), sub.flags(), tri.a(), tri.b(), tri.c());
+  for (const auto& submesh : mesh.submesh()) {
+    const auto& faces = mesh.faces(submesh.faces());
+    glm::mat4 transform{1};
+    if (submesh.has_translate()) {
+      transform *= glm::translate(glm::mat4{1}, load_vec3(submesh.translate()));
     }
-    for (const auto& quad: sub.quad()) {
-      add_triangle(sub.material(), sub.flags(), quad.a(), quad.b(), quad.c());
-      add_triangle(sub.material(), sub.flags(), quad.c(), quad.d(), quad.a());
+    if (submesh.has_scale()) {
+      transform *= glm::scale(glm::mat4{1}, load_vec3(submesh.scale()));
+    }
+
+    for (const auto& tri : faces.tri()) {
+      add_triangle(submesh.material(), transform, submesh.flags(),
+                   tri.a(), tri.b(), tri.c());
+    }
+
+    for (const auto& quad: faces.quad()) {
+      add_triangle(submesh.material(), transform, submesh.flags(),
+                   quad.a(), quad.b(), quad.c());
+      add_triangle(submesh.material(), transform, submesh.flags(),
+                   quad.c(), quad.d(), quad.a());
     }
   }
 
