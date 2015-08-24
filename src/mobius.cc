@@ -1,11 +1,11 @@
 #include <SFML/Window.hpp>
 #include <glm/gtc/constants.hpp>
-#include <glm/gtc/matrix_transform.hpp>
 #include <glm/mat4x4.hpp>
 #include <glm/vec3.hpp>
-#include "render.h"
-#include "mesh.h"
 #include "collision.h"
+#include "mesh.h"
+#include "player.h"
+#include "render.h"
 
 glm::ivec2 window_size(const sf::Window& window)
 {
@@ -44,20 +44,14 @@ int main()
   renderer.perspective(glm::pi<float>() / 2, 1. / 1024, 1024);
 
   Collision collision;
-  Mesh player{"gen/data/player.mesh.pb"};
   Mesh level{"gen/data/level.mesh.pb"};
-  glm::vec3 player_position{0, 8, 0};
-  glm::vec2 player_angle{0, 0};
+  Player player{collision, {0, 8, 0}};
 
-  bool forward = false;
-  bool backward = false;
-  bool left = false;
-  bool right = false;
   bool focus = true;
-  float fall_speed = 0.f;
-
+  ControlData control_data;
   while (window.isOpen()) {
     sf::Event event;
+    control_data.jump = false;
     while (window.pollEvent(event)) {
       if (event.type == sf::Event::Closed ||
           (event.type == sf::Event::KeyPressed &&
@@ -73,71 +67,42 @@ int main()
         focus = false;
       } else if (event.type == sf::Event::KeyPressed) {
         if (event.key.code == sf::Keyboard::W) {
-          forward = true;
+          control_data.forward = true;
         } else if (event.key.code == sf::Keyboard::S) {
-          backward = true;
+          control_data.reverse = true;
         } else if (event.key.code == sf::Keyboard::A) {
-          left = true;
+          control_data.left = true;
         } else if (event.key.code == sf::Keyboard::D) {
-          right = true;
+          control_data.right = true;
         } else if (event.key.code == sf::Keyboard::Space) {
-          fall_speed = -1. / 16;
+          control_data.jump = true;
         }
       } else if (event.type == sf::Event::KeyReleased) {
         if (event.key.code == sf::Keyboard::W) {
-          forward = false;
+          control_data.forward = false;
         } else if (event.key.code == sf::Keyboard::S) {
-          backward = false;
+          control_data.reverse = false;
         } else if (event.key.code == sf::Keyboard::A) {
-          left = false;
+          control_data.left = false;
         } else if (event.key.code == sf::Keyboard::D) {
-          right = false;
+          control_data.right = false;
         }
       }
     }
 
     window.setMouseCursorVisible(!focus);
     if (focus) {
-      auto offset = (1.f / 2048) * (glm::vec2(mouse_position(window)) -
-                                    glm::vec2(window_size(window)) / 2.f);
+      control_data.mouse_move = (glm::vec2(mouse_position(window)) -
+                                 glm::vec2(window_size(window)) / 2.f);
       reset_mouse_position(window);
-
-      static const float epsilon = 1. / 1024;
-      player_angle += offset;
-      player_angle.y = glm::clamp(
-          player_angle.y,
-          -glm::pi<float>() / 2 + epsilon, glm::pi<float>() / 2 - epsilon);
+    } else {
+      control_data.mouse_move = glm::vec2{};
     }
 
-    glm::vec3 player_look{
-        cos(player_angle.y) * sin(-player_angle.x),
-        sin(player_angle.y),
-        cos(player_angle.y) * cos(-player_angle.x)};
-
-    auto player_side = glm::cross(player_look, {0, 1, 0});
-    auto player_forward = glm::cross({0, 1, 0}, player_side);
-
-    auto velocity =
-        player_forward * ((forward ? 1.f : 0.f) + (backward ? -1.f : 0.f)) +
-        player_side * ((right ? 1.f : 0.f) + (left ? -1.f: 0.f));
-    if (velocity != glm::vec3{0, 0, 0}) {
-      velocity = (1.f / 32) * glm::normalize(velocity);
-      player_position += collision.translation(
-          player, level,
-          glm::translate(glm::mat4{}, player_position),
-          velocity, true /* recursive */);
-    }
-
-    fall_speed = std::min(1. / 4, fall_speed + 1. / 512);
-    fall_speed *= collision.coefficient(
-        player, level,
-        glm::translate(glm::mat4{}, player_position), {0, -fall_speed, 0});
-    player_position -= glm::vec3{0, fall_speed, 0};
-
+    player.update(control_data, level);
     renderer.camera(
-      player_position + glm::vec3{0, .5, 0},
-      player_position + glm::vec3{0, .5, 0} + player_look, {0, 1, 0});
-    renderer.light(player_position + glm::vec3{0, .5, 0}, 1.f);
+      player.get_head_position(), player.get_look_position(), {0, 1, 0});
+    renderer.light(player.get_head_position(), 1.f);
 
     renderer.clear();
     renderer.world(glm::mat4{});
