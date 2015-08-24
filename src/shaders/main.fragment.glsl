@@ -11,6 +11,20 @@ out vec4 output_colour;
 uniform vec3 light_source;
 uniform float light_intensity;
 
+float dFmax(vec3 value)
+{
+  vec3 world_dx = dFdx(value);
+  vec3 world_dy = dFdy(value);
+  return max(length(world_dx), length(world_dy));
+}
+
+float dFsimplex3(float scale, float dF, vec3 value)
+{
+  // We assume the average over 2 units of noise is zero; this value could be
+  // tweaked up or down.
+  return scale * dF > 2 ? 0. : simplex3(scale * value);
+}
+
 void main()
 {
   vec3 light_difference = light_source - vertex_world;
@@ -21,18 +35,19 @@ void main()
   float intensity = (light_intensity * cos_angle) / (1. + light_distance_sq);
   intensity = clamp(intensity, 0., 1.);
 
+  float dF = dFmax(vertex_model);
   float texture =
-      simplex3(2048. * vertex_model) +
-      simplex3(1024. * vertex_model) +
-      simplex3(512. * vertex_model) +
-      simplex3(256. * vertex_model) +
-      simplex3(128. * vertex_model) +
-      simplex3(64. * vertex_model) +
-      simplex3(32. * vertex_model) +
-      simplex3(16. * vertex_model) +
-      simplex3(8. * vertex_model) +
-      simplex3(4. * vertex_model);
-  texture = (texture / 4. + 1.) / 2.;
+      dFsimplex3(4., dF, vertex_model) +
+      dFsimplex3(8., dF, vertex_model) +
+      dFsimplex3(16., dF, vertex_model) +
+      dFsimplex3(32., dF, vertex_model) +
+      dFsimplex3(64., dF, vertex_model) +
+      dFsimplex3(128., dF, vertex_model) +
+      dFsimplex3(256., dF, vertex_model) +
+      dFsimplex3(512., dF, vertex_model) +
+      dFsimplex3(1024., dF, vertex_model) +
+      dFsimplex3(2048., dF, vertex_model);
+  texture = (texture / 5. + 1.) / 2.;
 
   vec3 lit_colour = gamma_correct(
       intensity * texture * gamma_decorrect(vertex_colour));

@@ -107,7 +107,7 @@ int main()
     renderer.clear();
     renderer.world(glm::mat4{});
     renderer.mesh(level);
-    renderer.grain(1. / 16);
+    renderer.grain(1. / 32);
     renderer.render();
     window.display();
   }
