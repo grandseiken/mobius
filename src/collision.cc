@@ -20,6 +20,10 @@ float Collision::coefficient(
     });
   }
 
+  // One problem with the collision system is if an object's vertices happen to
+  // line up with the split in e.g. a quad it can fall through. Currently this
+  // is solved by adding redundant vertices to the objects, but it might need
+  // some thought.
   float bound_scale = 1;
   auto bound_by = [&](const glm::vec3& v, bool positive, const Triangle& tri)
   {
@@ -45,9 +49,9 @@ float Collision::coefficient(
       bound_by(to.a, true, te);
       bound_by(to.b, true, te);
       bound_by(to.c, true, te);
-      bound_by(te.a, true, to);
-      bound_by(te.b, true, to);
-      bound_by(te.c, true, to);
+      bound_by(te.a, false, to);
+      bound_by(te.b, false, to);
+      bound_by(te.c, false, to);
     }
   }
   return bound_scale;
