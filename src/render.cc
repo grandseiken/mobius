@@ -84,6 +84,7 @@ namespace {
 #include "../gen/shaders/main.fragment.glsl.h"
 #include "../gen/shaders/quad.vertex.glsl.h"
 #include "../gen/shaders/grain.fragment.glsl.h"
+#include "../gen/tools/simplex_lut.h"
 
 static const float quad_vertices[] = {
   -1, -1, 1, 1,
@@ -105,6 +106,7 @@ Renderer::Renderer()
   }
 
   GLEW_CHECK(GLEW_VERSION_3_3);
+  GLEW_CHECK(GLEW_ARB_texture_non_power_of_two);
   GLEW_CHECK(GLEW_ARB_shading_language_100);
   GLEW_CHECK(GLEW_ARB_shader_objects);
   GLEW_CHECK(GLEW_ARB_vertex_shader);
@@ -119,6 +121,15 @@ Renderer::Renderer()
       SHADER(quad_vertex, GL_VERTEX_SHADER),
       SHADER(grain_fragment, GL_FRAGMENT_SHADER)});
 
+  glGenTextures(1, &_simplex_lut);
+  glBindTexture(GL_TEXTURE_1D, _simplex_lut);
+  glTexImage1D(GL_TEXTURE_1D, 0, GL_RGB8, 49, 0,
+               GL_RGB, GL_FLOAT, gen_simplex_lut);
+  glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+  glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+  glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+  glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+
   glGenBuffers(1, &_quad_vbo);
   glBindBuffer(GL_ARRAY_BUFFER, _quad_vbo);
   glBufferData(GL_ARRAY_BUFFER,
@@ -129,8 +140,8 @@ Renderer::Renderer()
   glBufferData(GL_ELEMENT_ARRAY_BUFFER,
                sizeof(quad_indices), quad_indices, GL_STATIC_DRAW);
 
-  glGenVertexArrays(1, &_quad_vao);
-  glBindVertexArray(_quad_vao);
+  glGenVertexArrays(1, &_grain_vao);
+  glBindVertexArray(_grain_vao);
 
   glEnableVertexAttribArray(0);
   glBindBuffer(GL_ARRAY_BUFFER, _quad_vbo);
@@ -150,7 +161,8 @@ Renderer::~Renderer()
   glDeleteProgram(_grain_program);
   glDeleteBuffers(1, &_quad_vbo);
   glDeleteBuffers(1, &_quad_ibo);
-  glDeleteVertexArrays(1, &_quad_vao);
+  glDeleteTextures(1, &_simplex_lut);
+  glDeleteVertexArrays(1, &_grain_vao);
 }
 
 void Renderer::resize(const glm::ivec2& dimensions)
@@ -261,11 +273,17 @@ void Renderer::mesh(const Mesh& mesh) const
   glUniformMatrix4fv(
       glGetUniformLocation(_main_program, "vp_transform"),
       1, GL_FALSE, glm::value_ptr(_vp_transform));
+
   glUniform3fv(
       glGetUniformLocation(_main_program, "light_source"), 1,
       glm::value_ptr(_light.source));
   glUniform1f(
       glGetUniformLocation(_main_program, "light_intensity"), _light.intensity);
+
+  glUniform1f(
+      glGetUniformLocation(_main_program, "simplex_lut"), 0);
+  glActiveTexture(GL_TEXTURE0 + 0);
+  glBindTexture(GL_TEXTURE_1D, _simplex_lut);
 
   glBindVertexArray(mesh.vao());
   glDrawElements(GL_TRIANGLES, mesh.vertex_count(), GL_UNSIGNED_SHORT, 0);
@@ -282,7 +300,7 @@ void Renderer::grain(float amount) const
   glEnable(GL_BLEND);
   glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
-  glBindVertexArray(_quad_vao);
+  glBindVertexArray(_grain_vao);
   glDrawElements(GL_TRIANGLES, sizeof(quad_indices) / sizeof(quad_indices[0]),
                  GL_UNSIGNED_SHORT, 0);
   glUseProgram(0);

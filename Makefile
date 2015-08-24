@@ -27,10 +27,13 @@ LFLAGS=\
 
 # File listings.
 CC_SOURCE_FILES=$(wildcard $(SRCDIR)/*.cc)
+CC_TOOL_FILES=$(wildcard $(SRCDIR)/tools/*.cc)
 PROTO_FILES=$(wildcard $(SRCDIR)/*.proto)
 PROTO_TEXT_FILES=$(wildcard $(SRCDIR)/data/*.pb)
 SHADER_FILES=$(wildcard $(SRCDIR)/shaders/*.glsl)
 SHADER_H_FILES=$(wildcard $(SRCDIR)/shaders/*.glsl.h)
+CC_TOOL_BINARIES=$(subst $(SRCDIR)/,$(GENDIR)/,$(CC_TOOL_FILES:.cc=))
+CC_TOOL_OUTPUTS=$(subst $(SRCDIR)/,$(GENDIR)/,$(CC_TOOL_FILES:.cc=.h))
 PROTO_OUTPUTS=$(subst $(SRCDIR)/,$(GENDIR)/,$(PROTO_FILES:.proto=.pb.cc))
 SHADER_OUTPUTS=$(subst $(SRCDIR)/,$(GENDIR)/,$(SHADER_FILES:.glsl=.glsl.h))
 PROTO_DATA_FILES=$(subst $(SRCDIR)/,$(GENDIR)/,$(PROTO_TEXT_FILES))
@@ -40,9 +43,11 @@ H_FILES=$(wildcard $(SRCDIR)/*.h)
 MISC_FILES=Makefile dependencies/Makefile
 ALL_FILES=$(CC_SOURCE_FILES) $(H_FILES) $(MISC_FILES)
 
-# Libraries.
+# Libraries. SHADER_OUTPUTS only necessary because we don't do include
+# dependency generation for those (yet). Not sure why CC_TOOL_OUTPUTS is
+# necessary.
 CC_OBJECT_FILE_PREREQS=\
-  $(DEPENDENCIES)/sfml.build $(PROTO_OUTPUTS) $(SHADER_OUTPUTS)
+  $(DEPENDENCIES)/sfml.build $(SHADER_OUTPUTS) $(CC_TOOL_OUTPUTS)
 
 DISABLE_CC_DEPENDENCY_ANALYSIS=true
 ifneq ('$(MAKECMDGOALS)', 'add')
@@ -77,6 +82,20 @@ $(BINARIES): $(OUTDIR_BIN)/%: \
 	$(MKDIR)
 	@echo Linking ./$@
 	$(CXX) -o ./$@ $(CC_OBJECT_FILES) $(LFLAGS)
+
+# Tool compilation.
+$(CC_TOOL_BINARIES): $(GENDIR)/%: \
+  $(SRCDIR)/%.cc
+	$(MKDIR)
+	@echo Compiling ./$<
+	$(CXX) $(CFLAGS) $(CFLAGS_EXTRA) $(WFLAGS) -o $@ ./$<
+
+# Tool execution.
+$(CC_TOOL_OUTPUTS): $(GENDIR)/%.h: \
+  $(GENDIR)/%
+	$(MKDIR)
+	@echo Executing ./$<
+	./$< > $@
 
 # Proto files.
 $(GENDIR)/%.pb.h: \

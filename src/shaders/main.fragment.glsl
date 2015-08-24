@@ -10,6 +10,7 @@ out vec4 output_colour;
 
 uniform vec3 light_source;
 uniform float light_intensity;
+uniform sampler1D simplex_lut;
 
 float dFmax(vec3 value)
 {
@@ -22,7 +23,7 @@ float dFsimplex3(float scale, float dF, vec3 value)
 {
   // We assume the average over 2 units of noise is zero; this value could be
   // tweaked up or down.
-  return scale * dF > 2 ? 0. : simplex3(scale * value);
+  return scale * dF > 2 ? 0. : simplex3(scale * value, false, simplex_lut);
 }
 
 void main()

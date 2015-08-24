@@ -54,7 +54,7 @@ float interpolate(vec3 x0, vec3 x1, vec3 x2, vec3 x3,
       vec4(dot(g0, x0), dot(g1, x1), dot(g2, x2), dot(g3, x3)));
 }
 
-float simplex3(vec3 coord)
+float simplex3(vec3 coord, bool use_lut, sampler1D lut)
 {
   // Find index and corners in the simplex grid.
   vec3 index = floor(coord + dot(coord, vec3(1. / 3.)));
@@ -71,27 +71,39 @@ float simplex3(vec3 coord)
 
   // Gradients to choose from are 7x7 points over a square mapped onto an
   // octahedron.
-  vec4 gradient_index = mod(random4_ring_size(index, i1, i2), 49);
+  vec4 gradient_index = mod(random4_ring_size(index, i1, i2), 49.);
 
-  // X and Y evenly distributed over [-1, 1].
-  vec4 x = (2. * floor(gradient_index / 7.) - 6.) / 7.;
-  vec4 y = (2. * mod(gradient_index, 7.) - 6.) / 7.;
-  // H in [-1, 1] with H + |X| + |Y| = 1.
-  vec4 h = 1. - abs(x) - abs(y);
+  if (use_lut) {
+    // This doesn't look right. Not sure why; it should be exactly the same as
+    // the computation below.
+    vec4 tex_coords = (.5 + gradient_index) / 49.;
+    vec3 g0 = texture(lut, tex_coords.x).xyz;
+    vec3 g1 = texture(lut, tex_coords.y).xyz;
+    vec3 g2 = texture(lut, tex_coords.z).xyz;
+    vec3 g3 = texture(lut, tex_coords.w).xyz;
 
-  // -1 for less than 0, +1 for more than 0.
-  vec4 sx = 2. * floor(x) + 1.;
-  vec4 sy = 2. * floor(y) + 1.;
-  // 1 if h <= 0, 0 otherwise.
-  vec4 sh = step(h, vec4(0.));
-  // Swaps the lower corners of the pyramid to form the octahedron.
-  vec4 ax = x - sx * sh;
-  vec4 ay = y - sy * sh;
+    return interpolate(x0, x1, x2, x3, g0, g1, g2, g3);
+  } else {
+    // X and Y evenly distributed over [-1, 1].
+    vec4 x = (2. * floor(gradient_index / 7.) - 6.) / 7.;
+    vec4 y = (2. * mod(gradient_index, 7.) - 6.) / 7.;
+    // H in [-1, 1] with H + |X| + |Y| = 1.
+    vec4 h = 1. - abs(x) - abs(y);
 
-  vec3 g0 = normalize(vec3(ax.x, ay.x, h.x));
-  vec3 g1 = normalize(vec3(ax.y, ay.y, h.y));
-  vec3 g2 = normalize(vec3(ax.z, ay.z, h.z));
-  vec3 g3 = normalize(vec3(ax.w, ay.w, h.w));
+    // -1 for less than 0, +1 for more than 0.
+    vec4 sx = 2. * floor(x) + 1.;
+    vec4 sy = 2. * floor(y) + 1.;
+    // 1 if h <= 0, 0 otherwise.
+    vec4 sh = step(h, vec4(0.));
+    // Swaps the lower corners of the pyramid to form the octahedron.
+    vec4 ax = x - sx * sh;
+    vec4 ay = y - sy * sh;
 
-  return interpolate(x0, x1, x2, x3, g0, g1, g2, g3);
+    vec3 g0 = normalize(vec3(ax.x, ay.x, h.x));
+    vec3 g1 = normalize(vec3(ax.y, ay.y, h.y));
+    vec3 g2 = normalize(vec3(ax.z, ay.z, h.z));
+    vec3 g3 = normalize(vec3(ax.w, ay.w, h.w));
+
+    return interpolate(x0, x1, x2, x3, g0, g1, g2, g3);
+  }
 }
