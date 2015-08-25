@@ -40,6 +40,7 @@ private:
   uint32_t _simplex_permutation_lut = 0;
   uint32_t _sampler = 0;
 
+  int32_t _max_texture_size = 0;
   mutable uint32_t _frame = 0;
   uint32_t _grain_vao = 0;
   uint32_t _quad_vbo = 0;

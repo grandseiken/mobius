@@ -80,6 +80,8 @@ namespace {
       gen_shaders_##name##_glsl, \
       gen_shaders_##name##_glsl + gen_shaders_##name##_glsl_len))
 
+#define ARRAY_LENGTH(array) (sizeof(array) / sizeof(array[0]))
+
 #include "../gen/shaders/main.vertex.glsl.h"
 #include "../gen/shaders/main.fragment.glsl.h"
 #include "../gen/shaders/quad.vertex.glsl.h"
@@ -112,6 +114,9 @@ Renderer::Renderer()
   GLEW_CHECK(GLEW_ARB_fragment_shader);
   GLEW_CHECK(GLEW_ARB_framebuffer_object);
   GLEW_CHECK(GLEW_EXT_framebuffer_multisample);
+  // Should we have multiple permutation resolutions for different texture
+  // sizes? Or just use several 1D textures and pack them in?
+  glGetIntegerv(GL_MAX_TEXTURE_SIZE, &_max_texture_size);
 
   _main_program = create_program("main", {
       SHADER(main_vertex, GL_VERTEX_SHADER),
@@ -124,16 +129,14 @@ Renderer::Renderer()
   glBindTexture(GL_TEXTURE_1D, _simplex_gradient_lut);
   glTexImage1D(
       GL_TEXTURE_1D, 0, GL_RGB8,
-      sizeof(gen_simplex_gradient_lut) /
-      sizeof(gen_simplex_gradient_lut[0]) / 3,
+      ARRAY_LENGTH(gen_simplex_gradient_lut) / 3,
       0, GL_RGB, GL_FLOAT, gen_simplex_gradient_lut);
 
   glGenTextures(1, &_simplex_permutation_lut);
   glBindTexture(GL_TEXTURE_1D, _simplex_permutation_lut);
   glTexImage1D(
       GL_TEXTURE_1D, 0, GL_R32F,
-      sizeof(gen_simplex_permutation_lut) /
-      sizeof(gen_simplex_permutation_lut[0]),
+      ARRAY_LENGTH(gen_simplex_permutation_lut),
       0, GL_RED, GL_FLOAT, gen_simplex_permutation_lut);
 
   glGenSamplers(1, &_sampler);
@@ -300,6 +303,9 @@ void Renderer::mesh(const Mesh& mesh) const
   glBindTexture(GL_TEXTURE_1D, _simplex_gradient_lut);
   glBindSampler(0, _sampler);
   glUniform1i(
+      glGetUniformLocation(_main_program, "simplex_use_permutation_lut"),
+      uint32_t(_max_texture_size) >= ARRAY_LENGTH(gen_simplex_permutation_lut));
+  glUniform1i(
       glGetUniformLocation(_main_program, "simplex_permutation_lut"), 1);
   glActiveTexture(GL_TEXTURE1);
   glBindTexture(GL_TEXTURE_1D, _simplex_permutation_lut);
@@ -320,6 +326,9 @@ void Renderer::grain(float amount) const
   glActiveTexture(GL_TEXTURE0);
   glBindTexture(GL_TEXTURE_1D, _simplex_gradient_lut);
   glBindSampler(0, _sampler);
+  glUniform1i(
+      glGetUniformLocation(_grain_program, "simplex_use_permutation_lut"),
+      uint32_t(_max_texture_size) >= ARRAY_LENGTH(gen_simplex_permutation_lut));
   glUniform1i(
       glGetUniformLocation(_grain_program, "simplex_permutation_lut"), 1);
   glActiveTexture(GL_TEXTURE1);

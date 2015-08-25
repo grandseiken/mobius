@@ -12,6 +12,7 @@ uniform vec3 light_source;
 uniform float light_intensity;
 uniform sampler1D simplex_gradient_lut;
 uniform sampler1D simplex_permutation_lut;
+uniform bool simplex_use_permutation_lut;
 
 float dFmax(vec3 value)
 {
@@ -25,7 +26,8 @@ float dFsimplex3(float scale, float dF, vec3 value)
   // We assume the average over 2 units of noise is zero; this value could be
   // tweaked up or down.
   return scale * dF > 2 ? 0. :
-      simplex3(scale * value, simplex_gradient_lut, simplex_permutation_lut);
+      simplex3(scale * value, simplex_gradient_lut,
+               simplex_use_permutation_lut, simplex_permutation_lut);
 }
 
 void main()

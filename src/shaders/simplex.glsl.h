@@ -28,24 +28,30 @@ const int gradient_size = 49;
 const int permutation_prime_factor = 17;
 const int permutation_ring_size =
     permutation_prime_factor * permutation_prime_factor;
+const int lut_permutation_ring_size = 17 * 17;
 
-vec4 permute(sampler1D lut, vec4 x)
+vec4 permute(sampler1D lut, bool use_lut, vec4 x)
 {
-  vec4 s = (.5 + x) / 512.;
-  return 512. * vec4(
-      texture(lut, s.x).x, texture(lut, s.y).x,
-      texture(lut, s.z).x, texture(lut, s.w).x);
+  if (use_lut) {
+    // It should now be possible to turn up the permutation size, but the hash
+    // breaks down at e.g. 43 * 43 in a texture of size 2048. Work out why.
+    vec4 s = (.5 + x) / 512.;
+    return 512. * vec4(
+        texture(lut, s.x).x, texture(lut, s.y).x,
+        texture(lut, s.z).x, texture(lut, s.w).x);
+  }
+  return mod(
+      1 + x * (1 + 2 * x * permutation_prime_factor), permutation_ring_size);
 }
 
-// Get the permutation: four "random" numbers in the range
-// [0, permutation_ring_size).
-vec4 random4_ring_size(sampler1D lut, vec3 i0, vec3 i1, vec3 i2)
+// Get the permutation: four "random" numbers.
+vec4 random4(sampler1D lut, bool use_lut, vec3 i0, vec3 i1, vec3 i2)
 {
-  i0 = mod(i0, permutation_ring_size);
+  i0 = mod(i0, use_lut ? lut_permutation_ring_size : permutation_ring_size);
   return
-      permute(lut, i0.x + vec4(0, i1.x, i2.x, 1) +
-      permute(lut, i0.y + vec4(0, i1.y, i2.y, 1) +
-      permute(lut, i0.z + vec4(0, i1.z, i2.z, 1))));
+      permute(lut, use_lut, i0.x + vec4(0, i1.x, i2.x, 1) +
+      permute(lut, use_lut, i0.y + vec4(0, i1.y, i2.y, 1) +
+      permute(lut, use_lut, i0.z + vec4(0, i1.z, i2.z, 1))));
 }
 
 float interpolate(vec3 x0, vec3 x1, vec3 x2, vec3 x3,
@@ -57,7 +63,8 @@ float interpolate(vec3 x0, vec3 x1, vec3 x2, vec3 x3,
       vec4(dot(g0, x0), dot(g1, x1), dot(g2, x2), dot(g3, x3)));
 }
 
-float simplex3(vec3 coord, sampler1D gradient_lut, sampler1D permutation_lut)
+float simplex3(vec3 coord, sampler1D gradient_lut,
+               bool use_permutation_lut, sampler1D permutation_lut)
 {
   // Find index and corners in the simplex grid.
   vec3 index = floor(coord + dot(coord, vec3(1. / 3.)));
@@ -74,8 +81,8 @@ float simplex3(vec3 coord, sampler1D gradient_lut, sampler1D permutation_lut)
 
   // Gradients to choose from are 7x7 points over a square mapped onto an
   // octahedron.
-  vec4 gradient_index =
-      mod(random4_ring_size(permutation_lut, index, i1, i2), gradient_size);
+  vec4 r = random4(permutation_lut, use_permutation_lut, index, i1, i2);
+  vec4 gradient_index = mod(r, gradient_size);
   vec4 tex_coords = (.5 + gradient_index) / 64.;
 
   vec3 g0 = 2. * texture(gradient_lut, tex_coords.x).xyz - 1.;
