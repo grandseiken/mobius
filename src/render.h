@@ -37,6 +37,7 @@ private:
   uint32_t _main_program = 0;
   uint32_t _grain_program = 0;
   uint32_t _simplex_lut = 0;
+  uint32_t _sampler = 0;
 
   mutable uint32_t _frame = 0;
   uint32_t _grain_vao = 0;

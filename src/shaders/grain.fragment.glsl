@@ -8,8 +8,7 @@ uniform sampler1D simplex_lut;
 
 float simplex_layer(vec3 seed, float time, float pow)
 {
-  return (1. / pow) *
-      simplex3(seed / pow - vec3(0., 0., time / pow), false, simplex_lut);
+  return simplex3(seed / pow - vec3(0., 0., time / pow), simplex_lut) / pow;
 }
 
 void main()

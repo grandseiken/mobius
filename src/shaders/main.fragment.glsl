@@ -23,7 +23,7 @@ float dFsimplex3(float scale, float dF, vec3 value)
 {
   // We assume the average over 2 units of noise is zero; this value could be
   // tweaked up or down.
-  return scale * dF > 2 ? 0. : simplex3(scale * value, false, simplex_lut);
+  return scale * dF > 2 ? 0. : simplex3(scale * value, simplex_lut);
 }
 
 void main()
@@ -38,6 +38,7 @@ void main()
 
   float dF = dFmax(vertex_model);
   float texture =
+      dFsimplex3(2., dF, vertex_model) +
       dFsimplex3(4., dF, vertex_model) +
       dFsimplex3(8., dF, vertex_model) +
       dFsimplex3(16., dF, vertex_model) +
@@ -47,8 +48,9 @@ void main()
       dFsimplex3(256., dF, vertex_model) +
       dFsimplex3(512., dF, vertex_model) +
       dFsimplex3(1024., dF, vertex_model) +
-      dFsimplex3(2048., dF, vertex_model);
-  texture = (texture / 5. + 1.) / 2.;
+      dFsimplex3(2048., dF, vertex_model) +
+      dFsimplex3(4096., dF, vertex_model);
+  texture = (texture / 8. + 1.) / 2.;
 
   vec3 lit_colour = gamma_correct(
       intensity * texture * gamma_decorrect(vertex_colour));

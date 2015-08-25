@@ -21,12 +21,15 @@ int main() {
 
       // Normalize.
       double len = sqrt(ax * ax + ay * ay + h * h);
-      ax /= len;
-      ay /= len;
-      h /= len;
+      ax = .5 + ax / (len * 2);
+      ay = .5 + ay / (len * 2);
+      h = .5 + h / (len * 2);
 
       std::cout << "  " << ax << ", " << ay << ", " << h << ",\n";
     }
+  }
+  for (int i = 0; i < 64 - 49; ++i) {
+    std::cout << "  0, 0, 0,\n";
   }
   std::cout << "};\n";
 }

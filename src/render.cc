@@ -106,7 +106,6 @@ Renderer::Renderer()
   }
 
   GLEW_CHECK(GLEW_VERSION_3_3);
-  GLEW_CHECK(GLEW_ARB_texture_non_power_of_two);
   GLEW_CHECK(GLEW_ARB_shading_language_100);
   GLEW_CHECK(GLEW_ARB_shader_objects);
   GLEW_CHECK(GLEW_ARB_vertex_shader);
@@ -123,7 +122,7 @@ Renderer::Renderer()
 
   glGenTextures(1, &_simplex_lut);
   glBindTexture(GL_TEXTURE_1D, _simplex_lut);
-  glTexImage1D(GL_TEXTURE_1D, 0, GL_RGB8, 49, 0,
+  glTexImage1D(GL_TEXTURE_1D, 0, GL_RGB8, 64, 0,
                GL_RGB, GL_FLOAT, gen_simplex_lut);
   glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
   glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
@@ -282,8 +281,9 @@ void Renderer::mesh(const Mesh& mesh) const
 
   glUniform1f(
       glGetUniformLocation(_main_program, "simplex_lut"), 0);
-  glActiveTexture(GL_TEXTURE0 + 0);
+  glActiveTexture(GL_TEXTURE0);
   glBindTexture(GL_TEXTURE_1D, _simplex_lut);
+  glBindSampler(0, _sampler);
 
   glBindVertexArray(mesh.vao());
   glDrawElements(GL_TRIANGLES, mesh.vertex_count(), GL_UNSIGNED_SHORT, 0);
@@ -295,6 +295,10 @@ void Renderer::grain(float amount) const
   glUseProgram(_grain_program);
   glUniform1f(glGetUniformLocation(_grain_program, "amount"), amount);
   glUniform1f(glGetUniformLocation(_grain_program, "frame"), _frame);
+  glUniform1f(
+      glGetUniformLocation(_grain_program, "simplex_lut"), 0);
+  glActiveTexture(GL_TEXTURE0);
+  glBindTexture(GL_TEXTURE_1D, _simplex_lut);
 
   glDisable(GL_DEPTH_TEST);
   glEnable(GL_BLEND);
