@@ -4,7 +4,7 @@
 
 int main() {
   std::cout << std::fixed << std::setprecision(16);
-  std::cout << "static const float gen_simplex_lut[] = {\n";
+  std::cout << "static const float gen_simplex_gradient_lut[] = {\n";
   // 7x7 points over a square mapped onto an octahedron.
   for (int yi = 0; yi < 7; ++yi) {
     for (int xi = 0; xi < 7; ++xi) {
@@ -31,5 +31,16 @@ int main() {
   for (int i = 0; i < 64 - 49; ++i) {
     std::cout << "  0, 0, 0,\n";
   }
-  std::cout << "};\n";
+  std::cout << "};\n\n";
+
+  const long prime_factor = 17;
+  const long ring_size = prime_factor * prime_factor;
+  std::cout << "static const float gen_simplex_permutation_lut[] = {\n";
+  for (long i = 0; i < 512; ++i) {
+    long x = (i % ring_size);
+    long out = (1 + x * (1 + 2 * x * prime_factor)) % ring_size;
+    double f = double(out) / 512;
+    std::cout << "  " << f << ",\n";
+  }
+  std::cout << "};\n\n";
 }

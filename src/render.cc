@@ -120,14 +120,27 @@ Renderer::Renderer()
       SHADER(quad_vertex, GL_VERTEX_SHADER),
       SHADER(grain_fragment, GL_FRAGMENT_SHADER)});
 
-  glGenTextures(1, &_simplex_lut);
-  glBindTexture(GL_TEXTURE_1D, _simplex_lut);
-  glTexImage1D(GL_TEXTURE_1D, 0, GL_RGB8, 64, 0,
-               GL_RGB, GL_FLOAT, gen_simplex_lut);
-  glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-  glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-  glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-  glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+  glGenTextures(1, &_simplex_gradient_lut);
+  glBindTexture(GL_TEXTURE_1D, _simplex_gradient_lut);
+  glTexImage1D(
+      GL_TEXTURE_1D, 0, GL_RGB8,
+      sizeof(gen_simplex_gradient_lut) /
+      sizeof(gen_simplex_gradient_lut[0]) / 3,
+      0, GL_RGB, GL_FLOAT, gen_simplex_gradient_lut);
+
+  glGenTextures(1, &_simplex_permutation_lut);
+  glBindTexture(GL_TEXTURE_1D, _simplex_permutation_lut);
+  glTexImage1D(
+      GL_TEXTURE_1D, 0, GL_R32F,
+      sizeof(gen_simplex_permutation_lut) /
+      sizeof(gen_simplex_permutation_lut[0]),
+      0, GL_RED, GL_FLOAT, gen_simplex_permutation_lut);
+
+  glGenSamplers(1, &_sampler);
+  glSamplerParameteri(_sampler, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+  glSamplerParameteri(_sampler, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+  glSamplerParameteri(_sampler, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+  glSamplerParameteri(_sampler, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 
   glGenBuffers(1, &_quad_vbo);
   glBindBuffer(GL_ARRAY_BUFFER, _quad_vbo);
@@ -160,7 +173,9 @@ Renderer::~Renderer()
   glDeleteProgram(_grain_program);
   glDeleteBuffers(1, &_quad_vbo);
   glDeleteBuffers(1, &_quad_ibo);
-  glDeleteTextures(1, &_simplex_lut);
+  glDeleteSamplers(1, &_sampler);
+  glDeleteTextures(1, &_simplex_gradient_lut);
+  glDeleteTextures(1, &_simplex_permutation_lut);
   glDeleteVertexArrays(1, &_grain_vao);
 }
 
@@ -279,11 +294,16 @@ void Renderer::mesh(const Mesh& mesh) const
   glUniform1f(
       glGetUniformLocation(_main_program, "light_intensity"), _light.intensity);
 
-  glUniform1f(
-      glGetUniformLocation(_main_program, "simplex_lut"), 0);
+  glUniform1i(
+      glGetUniformLocation(_main_program, "simplex_gradient_lut"), 0);
   glActiveTexture(GL_TEXTURE0);
-  glBindTexture(GL_TEXTURE_1D, _simplex_lut);
+  glBindTexture(GL_TEXTURE_1D, _simplex_gradient_lut);
   glBindSampler(0, _sampler);
+  glUniform1i(
+      glGetUniformLocation(_main_program, "simplex_permutation_lut"), 1);
+  glActiveTexture(GL_TEXTURE1);
+  glBindTexture(GL_TEXTURE_1D, _simplex_permutation_lut);
+  glBindSampler(1, _sampler);
 
   glBindVertexArray(mesh.vao());
   glDrawElements(GL_TRIANGLES, mesh.vertex_count(), GL_UNSIGNED_SHORT, 0);
@@ -295,10 +315,16 @@ void Renderer::grain(float amount) const
   glUseProgram(_grain_program);
   glUniform1f(glGetUniformLocation(_grain_program, "amount"), amount);
   glUniform1f(glGetUniformLocation(_grain_program, "frame"), _frame);
-  glUniform1f(
-      glGetUniformLocation(_grain_program, "simplex_lut"), 0);
+  glUniform1i(
+      glGetUniformLocation(_grain_program, "simplex_gradient_lut"), 0);
   glActiveTexture(GL_TEXTURE0);
-  glBindTexture(GL_TEXTURE_1D, _simplex_lut);
+  glBindTexture(GL_TEXTURE_1D, _simplex_gradient_lut);
+  glBindSampler(0, _sampler);
+  glUniform1i(
+      glGetUniformLocation(_grain_program, "simplex_permutation_lut"), 1);
+  glActiveTexture(GL_TEXTURE1);
+  glBindTexture(GL_TEXTURE_1D, _simplex_permutation_lut);
+  glBindSampler(1, _sampler);
 
   glDisable(GL_DEPTH_TEST);
   glEnable(GL_BLEND);

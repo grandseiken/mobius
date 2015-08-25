@@ -24,25 +24,28 @@
 
 // Must be small enough that permute(x) can be calculated without overflowing.
 // We can use something higher with integers, but it's slow.
+const int gradient_size = 49;
 const int permutation_prime_factor = 17;
 const int permutation_ring_size =
     permutation_prime_factor * permutation_prime_factor;
 
-vec4 permute(vec4 x)
+vec4 permute(sampler1D lut, vec4 x)
 {
-  return mod(
-      1 + x * (1 + 2 * x * permutation_prime_factor), permutation_ring_size);
+  vec4 s = (.5 + x) / 512.;
+  return 512. * vec4(
+      texture(lut, s.x).x, texture(lut, s.y).x,
+      texture(lut, s.z).x, texture(lut, s.w).x);
 }
 
 // Get the permutation: four "random" numbers in the range
 // [0, permutation_ring_size).
-vec4 random4_ring_size(vec3 i0, vec3 i1, vec3 i2)
+vec4 random4_ring_size(sampler1D lut, vec3 i0, vec3 i1, vec3 i2)
 {
   i0 = mod(i0, permutation_ring_size);
   return
-      permute(i0.x + vec4(0, i1.x, i2.x, 1) +
-      permute(i0.y + vec4(0, i1.y, i2.y, 1) +
-      permute(i0.z + vec4(0, i1.z, i2.z, 1))));
+      permute(lut, i0.x + vec4(0, i1.x, i2.x, 1) +
+      permute(lut, i0.y + vec4(0, i1.y, i2.y, 1) +
+      permute(lut, i0.z + vec4(0, i1.z, i2.z, 1))));
 }
 
 float interpolate(vec3 x0, vec3 x1, vec3 x2, vec3 x3,
@@ -54,7 +57,7 @@ float interpolate(vec3 x0, vec3 x1, vec3 x2, vec3 x3,
       vec4(dot(g0, x0), dot(g1, x1), dot(g2, x2), dot(g3, x3)));
 }
 
-float simplex3(vec3 coord, sampler1D lut)
+float simplex3(vec3 coord, sampler1D gradient_lut, sampler1D permutation_lut)
 {
   // Find index and corners in the simplex grid.
   vec3 index = floor(coord + dot(coord, vec3(1. / 3.)));
@@ -71,13 +74,14 @@ float simplex3(vec3 coord, sampler1D lut)
 
   // Gradients to choose from are 7x7 points over a square mapped onto an
   // octahedron.
-  vec4 gradient_index = mod(random4_ring_size(index, i1, i2), 49.);
+  vec4 gradient_index =
+      mod(random4_ring_size(permutation_lut, index, i1, i2), gradient_size);
   vec4 tex_coords = (.5 + gradient_index) / 64.;
 
-  vec3 g0 = 2. * texture(lut, tex_coords.x).xyz - 1.;
-  vec3 g1 = 2. * texture(lut, tex_coords.y).xyz - 1.;
-  vec3 g2 = 2. * texture(lut, tex_coords.z).xyz - 1.;
-  vec3 g3 = 2. * texture(lut, tex_coords.w).xyz - 1.;
+  vec3 g0 = 2. * texture(gradient_lut, tex_coords.x).xyz - 1.;
+  vec3 g1 = 2. * texture(gradient_lut, tex_coords.y).xyz - 1.;
+  vec3 g2 = 2. * texture(gradient_lut, tex_coords.z).xyz - 1.;
+  vec3 g3 = 2. * texture(gradient_lut, tex_coords.w).xyz - 1.;
 
   return interpolate(x0, x1, x2, x3, g0, g1, g2, g3);
 }
