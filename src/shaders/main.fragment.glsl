@@ -54,7 +54,7 @@ void main()
       dFsimplex3(1024., dF, vertex_model) +
       dFsimplex3(2048., dF, vertex_model) +
       dFsimplex3(4096., dF, vertex_model);
-  texture = (texture / 8. + 1.) / 2.;
+  texture = (texture / 16. + 1.) / 2.;
 
   vec3 lit_colour = gamma_correct(
       intensity * texture * gamma_decorrect(vertex_colour));

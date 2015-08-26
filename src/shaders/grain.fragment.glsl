@@ -18,7 +18,7 @@ float simplex_layer(vec3 seed, float time, float pow)
 
 void main()
 {
-  float time = frame / 16.;
+  float time = frame / 32.;
   vec3 seed = vec3(gl_FragCoord.xy / 2., gl_FragCoord.x / 8.);
 
   float n =
