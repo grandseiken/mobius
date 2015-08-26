@@ -11,15 +11,6 @@ float Collision::coefficient(
     const glm::mat4x4& object_transform,
     const glm::vec3& vector, glm::vec3* remaining) const
 {
-  std::vector<Triangle> object_physical;
-  for (const auto& t : object.physical()) {
-    object_physical.push_back(Triangle{
-      glm::vec3{object_transform * glm::vec4{t.a, 1.}},
-      glm::vec3{object_transform * glm::vec4{t.b, 1.}},
-      glm::vec3{object_transform * glm::vec4{t.c, 1.}},
-    });
-  }
-
   // One problem with the collision system is if an object's vertices happen to
   // line up with the split in e.g. a quad it can fall through. Currently this
   // is solved by adding redundant vertices to the objects, but it might need
@@ -41,17 +32,27 @@ float Collision::coefficient(
     }
   };
 
-  // This is, of course, very inefficient. We can:
-  // - consider vertices alone rather than repeating when shared by triangles
-  // - use an acceleration structure (spatial index)
-  for (const auto& to : object_physical) {
-    for (const auto& te : environment.physical()) {
-      bound_by(to.a, true, te);
-      bound_by(to.b, true, te);
-      bound_by(to.c, true, te);
-      bound_by(te.a, false, to);
-      bound_by(te.b, false, to);
-      bound_by(te.c, false, to);
+  // We will want to consider some sort of acceleration structure (spatial
+  // index) at some point.
+  for (const auto& v : object.physical_vertices()) {
+    auto vt = glm::vec3{object_transform * glm::vec4{v, 1.}};
+    for (const auto& t : environment.physical_faces()) {
+      bound_by(vt, true, t);
+    }
+    if (bound_scale <= 0) {
+      break;
+    }
+  }
+  for (const auto& t : object.physical_faces()) {
+    Triangle tt{
+      glm::vec3{object_transform * glm::vec4{t.a, 1.}},
+      glm::vec3{object_transform * glm::vec4{t.b, 1.}},
+      glm::vec3{object_transform * glm::vec4{t.c, 1.}}};
+    for (const auto& v : environment.physical_vertices()) {
+      bound_by(v, false, tt);
+    }
+    if (bound_scale <= 0) {
+      break;
     }
   }
   return bound_scale;

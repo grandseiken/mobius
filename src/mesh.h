@@ -19,7 +19,8 @@ public:
 
   uint32_t vao() const;
   uint32_t vertex_count() const;
-  const std::vector<Triangle>& physical() const;
+  const std::vector<Triangle>& physical_faces() const;
+  const std::vector<glm::vec3>& physical_vertices() const;
 
 private:
   uint32_t _vertex_count = 0;
@@ -27,7 +28,8 @@ private:
   uint32_t _vbo;
   uint32_t _ibo;
 
-  std::vector<Triangle> _physical;
+  std::vector<Triangle> _physical_faces;
+  std::vector<glm::vec3> _physical_vertices;
 };
 
 #endif

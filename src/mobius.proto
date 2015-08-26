@@ -30,9 +30,10 @@ message material {
   rgb colour = 1;
 }
 
-message faces {
-  repeated tri tri = 1;
-  repeated quad quad = 2;
+message geometry {
+  repeated uint32 point = 1;
+  repeated tri tri = 2;
+  repeated quad quad = 3;
 }
 
 message submesh {
@@ -44,14 +45,13 @@ message submesh {
 
   uint32 flags = 1;
   material material = 2;
-
-  uint32 faces = 3;
+  uint32 geometry = 3;
   vec3 scale = 4;
   vec3 translate = 5;
 }
 
 message mesh {
   repeated vec3 vertex = 1;
-  repeated faces faces = 2;
+  repeated geometry geometry = 2;
   repeated submesh submesh = 3;
 }

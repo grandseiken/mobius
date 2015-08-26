@@ -7,7 +7,7 @@ vertex: {x:  1, y: -1, z:  1}
 vertex: {x: -1, y:  1, z:  1}
 vertex: {x:  1, y:  1, z:  1}
 
-faces: {
+geometry: {
   quad: {a: 0, b: 2, c: 3, d: 1}
   quad: {a: 4, b: 5, c: 7, d: 6}
   quad: {a: 0, b: 4, c: 6, d: 2}
@@ -21,7 +21,7 @@ submesh: {
   material: {
     colour: {r: .16, g: .63, b: .60}
   }
-  faces: 0
+  geometry: 0
   scale: {x: 2, y: 2, z: 2}
 }
 
@@ -30,7 +30,7 @@ submesh: {
   material: {
     colour: {r: .35, g: .43, b: .46}
   }
-  faces: 0
+  geometry: 0
   scale: {x: 8, y: -8, z: 8}
   translate: {x: 0, y: 6, z: 0}
 }
