@@ -3,6 +3,7 @@
 #include <iostream>
 
 int main() {
+  const long gradient_texture_size = 64;
   std::cout << std::fixed << std::setprecision(16);
   std::cout << "static const float gen_simplex_gradient_lut[] = {\n";
   // 7x7 points over a square mapped onto an octahedron.
@@ -28,18 +29,19 @@ int main() {
       std::cout << "  " << ax << ", " << ay << ", " << h << ",\n";
     }
   }
-  for (int i = 0; i < 64 - 49; ++i) {
+  for (int i = 0; i < gradient_texture_size - 49; ++i) {
     std::cout << "  0, 0, 0,\n";
   }
   std::cout << "};\n\n";
 
-  const long prime_factor = 17;
+  const long permutation_texture_size = 2048;
+  const long prime_factor = 43;
   const long ring_size = prime_factor * prime_factor;
   std::cout << "static const float gen_simplex_permutation_lut[] = {\n";
-  for (long i = 0; i < 512; ++i) {
+  for (long i = 0; i < permutation_texture_size; ++i) {
     long x = (i % ring_size);
     long out = (1 + x * (1 + 2 * x * prime_factor)) % ring_size;
-    double f = double(out) / 512;
+    double f = double(out) / permutation_texture_size;
     std::cout << "  " << f << ",\n";
   }
   std::cout << "};\n\n";

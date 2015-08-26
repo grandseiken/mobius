@@ -25,18 +25,22 @@
 // Must be small enough that permute(x) can be calculated without overflowing.
 // We can use something higher with integers, but it's slow.
 const int gradient_size = 49;
+const int gradient_texture_size = 64;
 const int permutation_prime_factor = 17;
 const int permutation_ring_size =
     permutation_prime_factor * permutation_prime_factor;
-const int lut_permutation_ring_size = 17 * 17;
+const int lut_permutation_ring_size = 43 * 43;
+const int lut_permutation_texture_size = 2048;
 
 vec4 permute(sampler1D lut, bool use_lut, vec4 x)
 {
   if (use_lut) {
-    // It should now be possible to turn up the permutation size, but the hash
-    // breaks down at e.g. 43 * 43 in a texture of size 2048. Work out why.
-    vec4 s = (.5 + x) / 512.;
-    return 512. * vec4(
+    // This could probably be one lookup into a 3-component texture rather than
+    // three permutations, but need to work out the details.
+    vec4 s = (.5 + mod(x, lut_permutation_ring_size)) /
+        lut_permutation_texture_size;
+
+    return lut_permutation_texture_size * vec4(
         texture(lut, s.x).x, texture(lut, s.y).x,
         texture(lut, s.z).x, texture(lut, s.w).x);
   }
@@ -47,7 +51,9 @@ vec4 permute(sampler1D lut, bool use_lut, vec4 x)
 // Get the permutation: four "random" numbers.
 vec4 random4(sampler1D lut, bool use_lut, vec3 i0, vec3 i1, vec3 i2)
 {
-  i0 = mod(i0, use_lut ? lut_permutation_ring_size : permutation_ring_size);
+  if (!use_lut) {
+    i0 = mod(i0, permutation_ring_size);
+  }
   return
       permute(lut, use_lut, i0.x + vec4(0, i1.x, i2.x, 1) +
       permute(lut, use_lut, i0.y + vec4(0, i1.y, i2.y, 1) +
@@ -83,7 +89,7 @@ float simplex3(vec3 coord, sampler1D gradient_lut,
   // octahedron.
   vec4 r = random4(permutation_lut, use_permutation_lut, index, i1, i2);
   vec4 gradient_index = mod(r, gradient_size);
-  vec4 tex_coords = (.5 + gradient_index) / 64.;
+  vec4 tex_coords = (.5 + gradient_index) / gradient_texture_size;
 
   vec3 g0 = 2. * texture(gradient_lut, tex_coords.x).xyz - 1.;
   vec3 g1 = 2. * texture(gradient_lut, tex_coords.y).xyz - 1.;
