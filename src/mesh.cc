@@ -26,7 +26,36 @@ Mesh::Mesh(const std::string& path)
   mobius::proto::mesh mesh;
   std::ifstream ifstream(path);
   mesh.ParseFromIstream(&ifstream);
+  construct(mesh);
+}
 
+Mesh::Mesh(const mobius::proto::mesh& mesh)
+{
+  construct(mesh);
+}
+
+uint32_t Mesh::vao() const
+{
+  return _vao;
+}
+
+uint32_t Mesh::vertex_count() const
+{
+  return _vertex_count;
+}
+
+const std::vector<Triangle>& Mesh::physical_faces() const
+{
+  return _physical_faces;
+}
+
+const std::vector<glm::vec3>& Mesh::physical_vertices() const
+{
+  return _physical_vertices;
+}
+
+void Mesh::construct(const mobius::proto::mesh& mesh)
+{
   std::vector<float> vertices;
   std::vector<GLushort> indices;
   std::unordered_map<size_t, glm::mat4> submesh_transforms;
@@ -149,24 +178,4 @@ Mesh::~Mesh()
   glDeleteBuffers(1, &_vbo);
   glDeleteBuffers(1, &_ibo);
   glDeleteVertexArrays(1, &_vao);
-}
-
-uint32_t Mesh::vao() const
-{
-  return _vao;
-}
-
-uint32_t Mesh::vertex_count() const
-{
-  return _vertex_count;
-}
-
-const std::vector<Triangle>& Mesh::physical_faces() const
-{
-  return _physical_faces;
-}
-
-const std::vector<glm::vec3>& Mesh::physical_vertices() const
-{
-  return _physical_vertices;
 }

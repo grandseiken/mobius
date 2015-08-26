@@ -55,3 +55,21 @@ message mesh {
   repeated geometry geometry = 2;
   repeated submesh submesh = 3;
 }
+
+message portal {
+  string chunk_name = 1;
+  vec3 local_origin = 2;
+  vec3 local_normal = 3;
+  vec3 remote_origin = 4;
+  vec3 remote_normal = 5;
+}
+
+message chunk {
+  string name = 1;
+  mesh mesh = 2;
+  repeated portal portal = 3;
+}
+
+message world {
+  repeated chunk chunk = 1;
+}

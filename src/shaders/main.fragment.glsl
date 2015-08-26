@@ -80,6 +80,9 @@ void main()
   float light_distance_sq = dot(light_difference, light_difference);
   vec3 light_normal = light_difference * inversesqrt(light_distance_sq);
 
+  // When both light and camera are too close to the surface, we get artifacts
+  // far away that show the plane and ruin the effect. We could fake occlusion
+  // of back-facing normals somehow.
   float cos_angle = (dot(light_normal, surface_normal) +
                      dot(light_normal, vertex_normal)) / 2.;
   float intensity = (light_intensity * cos_angle) / (1. + light_distance_sq);

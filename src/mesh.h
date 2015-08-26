@@ -6,6 +6,12 @@
 #include <string>
 #include <vector>
 
+namespace mobius {
+  namespace proto {
+    class mesh;
+  }
+}
+
 struct Triangle {
   glm::vec3 a;
   glm::vec3 b;
@@ -15,6 +21,7 @@ struct Triangle {
 class Mesh {
 public:
   Mesh(const std::string& path);
+  Mesh(const mobius::proto::mesh& mesh);
   ~Mesh();
 
   uint32_t vao() const;
@@ -23,6 +30,8 @@ public:
   const std::vector<glm::vec3>& physical_vertices() const;
 
 private:
+  void construct(const mobius::proto::mesh& mesh);
+
   uint32_t _vertex_count = 0;
   uint32_t _vao;
   uint32_t _vbo;
