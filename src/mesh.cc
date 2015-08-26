@@ -1,60 +1,23 @@
 #include "mesh.h"
-#include "../gen/mobius.pb.h"
+#include "proto_util.h"
 
 #include <glm/mat4x4.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/packing.hpp>
 #include <GL/glew.h>
-#include <fstream>
 #include <unordered_map>
 #include <unordered_set>
 
-namespace {
-  glm::vec3 load_vec3(const mobius::proto::vec3& v)
-  {
-    return {v.x(), v.y(), v.z()};
-  }
-
-  glm::vec3 load_rgb(const mobius::proto::rgb& v)
-  {
-    return {v.r(), v.g(), v.b()};
-  }
+Mesh::Mesh()
+{
 }
 
 Mesh::Mesh(const std::string& path)
+: Mesh{load_proto<mobius::proto::mesh>(path)}
 {
-  mobius::proto::mesh mesh;
-  std::ifstream ifstream(path);
-  mesh.ParseFromIstream(&ifstream);
-  construct(mesh);
 }
 
 Mesh::Mesh(const mobius::proto::mesh& mesh)
-{
-  construct(mesh);
-}
-
-uint32_t Mesh::vao() const
-{
-  return _vao;
-}
-
-uint32_t Mesh::vertex_count() const
-{
-  return _vertex_count;
-}
-
-const std::vector<Triangle>& Mesh::physical_faces() const
-{
-  return _physical_faces;
-}
-
-const std::vector<glm::vec3>& Mesh::physical_vertices() const
-{
-  return _physical_vertices;
-}
-
-void Mesh::construct(const mobius::proto::mesh& mesh)
 {
   std::vector<float> vertices;
   std::vector<GLushort> indices;
@@ -178,4 +141,24 @@ Mesh::~Mesh()
   glDeleteBuffers(1, &_vbo);
   glDeleteBuffers(1, &_ibo);
   glDeleteVertexArrays(1, &_vao);
+}
+
+uint32_t Mesh::vao() const
+{
+  return _vao;
+}
+
+uint32_t Mesh::vertex_count() const
+{
+  return _vertex_count;
+}
+
+const std::vector<Triangle>& Mesh::physical_faces() const
+{
+  return _physical_faces;
+}
+
+const std::vector<glm::vec3>& Mesh::physical_vertices() const
+{
+  return _physical_vertices;
 }

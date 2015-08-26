@@ -20,6 +20,7 @@ struct Triangle {
 
 class Mesh {
 public:
+  Mesh();
   Mesh(const std::string& path);
   Mesh(const mobius::proto::mesh& mesh);
   ~Mesh();
@@ -30,8 +31,6 @@ public:
   const std::vector<glm::vec3>& physical_vertices() const;
 
 private:
-  void construct(const mobius::proto::mesh& mesh);
-
   uint32_t _vertex_count = 0;
   uint32_t _vao;
   uint32_t _vbo;
