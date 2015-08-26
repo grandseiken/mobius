@@ -60,17 +60,9 @@ vec4 random4(sampler1D lut, bool use_lut, vec3 i0, vec3 i1, vec3 i2)
       permute(lut, use_lut, i0.z + vec4(0, i1.z, i2.z, 1))));
 }
 
-float interpolate(vec3 x0, vec3 x1, vec3 x2, vec3 x3,
-                  vec3 g0, vec3 g1, vec3 g2, vec3 g3)
-{
-  vec4 m = max(
-      .6 - vec4(dot(x0, x0), dot(x1, x1), dot(x2, x2), dot(x3, x3)), 0.);
-  return 42. * dot(m * m * m * m,
-      vec4(dot(g0, x0), dot(g1, x1), dot(g2, x2), dot(g3, x3)));
-}
-
-float simplex3(vec3 coord, sampler1D gradient_lut,
-               bool use_permutation_lut, sampler1D permutation_lut)
+vec4 simplex3_internal(
+    vec3 coord, bool compute_gradient, sampler1D gradient_lut,
+    bool use_permutation_lut, sampler1D permutation_lut)
 {
   // Find index and corners in the simplex grid.
   vec3 index = floor(coord + dot(coord, vec3(1. / 3.)));
@@ -96,5 +88,36 @@ float simplex3(vec3 coord, sampler1D gradient_lut,
   vec3 g2 = 2. * texture(gradient_lut, tex_coords.z).xyz - 1.;
   vec3 g3 = 2. * texture(gradient_lut, tex_coords.w).xyz - 1.;
 
-  return interpolate(x0, x1, x2, x3, g0, g1, g2, g3);
+  // Interpolate value and gradient.
+  vec4 xx = vec4(dot(x0, x0), dot(x1, x1), dot(x2, x2), dot(x3, x3));
+  vec4 gx = vec4(dot(g0, x0), dot(g1, x1), dot(g2, x2), dot(g3, x3));
+  vec4 m1 = max(.6 - xx, 0.);
+
+  vec4 m2 = m1 * m1;
+  vec4 m4 = m2 * m2;
+  float value = 42. * dot(m4, gx);
+
+  if (compute_gradient) {
+    vec4 t = m2 * m1 * gx;
+    vec3 gradient = 42. *
+        (m4.x * g0 + m4.y * g1 + m4.z * g2 + m4.w * g3 -
+         8. * (t.x * x0 + t.y * x1 + t.z * x2 + t.w * x3));
+    return vec4(gradient, value);
+  } else {
+    return vec4(0., 0., 0., value);
+  }
+}
+
+float simplex3(vec3 coord, sampler1D gradient_lut,
+               bool use_permutation_lut, sampler1D permutation_lut)
+{
+  return simplex3_internal(coord, false, gradient_lut,
+                           use_permutation_lut, permutation_lut).w;
+}
+
+vec4 simplex3_gradient(vec3 coord, sampler1D gradient_lut,
+                       bool use_permutation_lut, sampler1D permutation_lut)
+{
+  return simplex3_internal(coord, true, gradient_lut,
+                           use_permutation_lut, permutation_lut);
 }
