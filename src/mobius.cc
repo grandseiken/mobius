@@ -1,11 +1,7 @@
 #include <SFML/Window.hpp>
 #include <glm/gtc/constants.hpp>
-#include <glm/mat4x4.hpp>
-#include <glm/vec3.hpp>
-#include "collision.h"
-#include "mesh.h"
-#include "player.h"
 #include "render.h"
+#include "world.h"
 
 glm::ivec2 window_size(const sf::Window& window)
 {
@@ -27,8 +23,13 @@ void reset_mouse_position(const sf::Window& window)
   set_mouse_position(window, window_size(window) / 2);
 }
 
-int main()
+int main(int argc, char** argv)
 {
+  std::string world_path = "gen/data/demo.world.pb";
+  if (argc > 1) {
+    world_path = argv[1];
+  }
+
   sf::ContextSettings settings;
   settings.depthBits = 0;
   settings.stencilBits = 8;
@@ -42,10 +43,7 @@ int main()
   Renderer renderer;
   renderer.resize(window_size(window));
   renderer.perspective(glm::pi<float>() / 2, 1. / 1024, 1024);
-
-  Collision collision;
-  Mesh level{"gen/data/level.mesh.pb"};
-  Player player{collision, {0, 8, 0}};
+  World world{world_path, renderer};
 
   bool focus = true;
   ControlData control_data;
@@ -99,16 +97,8 @@ int main()
       control_data.mouse_move = glm::vec2{};
     }
 
-    player.update(control_data, level);
-    renderer.camera(
-      player.get_head_position(), player.get_look_position(), {0, 1, 0});
-    renderer.light(player.get_head_position(), 1.f);
-
-    renderer.clear();
-    renderer.world(glm::mat4{});
-    renderer.mesh(level);
-    renderer.grain(1. / 32);
-    renderer.render();
+    world.update(control_data);
+    world.render();
     window.display();
   }
   return 0;

@@ -1,15 +1,17 @@
 #ifndef MOBIUS_WORLD_H
 #define MOBIUS_WORLD_H
 
-#include "mesh.h"
+#include "collision.h"
+#include "player.h"
 #include <glm/vec3.hpp>
+#include <memory>
 #include <string>
 #include <unordered_map>
 #include <vector>
 
 struct Portal {
   std::string chunk_name;
-  Mesh portal_mesh;
+  std::unique_ptr<Mesh> portal_mesh;
 
   glm::vec3 local_origin;
   glm::vec3 local_normal;
@@ -18,17 +20,25 @@ struct Portal {
 };
 
 struct Chunk {
-  Mesh mesh;
+  std::unique_ptr<Mesh> mesh;
   std::vector<Portal> portals;
 };
 
+class Renderer;
 class World {
 public:
-  World(const std::string& path);
+  World(const std::string& path, Renderer& renderer);
+
+  void update(const ControlData& controls);
+  void render() const;
 
 private:
-  std::unordered_map<std::string, Chunk> _chunks;
+  Renderer& _renderer;
 
+  std::unordered_map<std::string, Chunk> _chunks;
+  std::string _active_chunk;
+  Collision _collision;
+  Player _player;
 };
 
 #endif

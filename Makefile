@@ -38,16 +38,16 @@ PROTO_OUTPUTS=$(subst $(SRCDIR)/,$(GENDIR)/,$(PROTO_FILES:.proto=.pb.cc))
 SHADER_OUTPUTS=$(subst $(SRCDIR)/,$(GENDIR)/,$(SHADER_FILES:.glsl=.glsl.h))
 PROTO_DATA_FILES=$(subst $(SRCDIR)/,$(GENDIR)/,$(PROTO_TEXT_FILES))
 CC_GENERATED_FILES=$(PROTO_OUTPUTS)
+H_GENERATED_FILES=$(SHADER_OUTPUTS) $(CC_TOOL_OUTPUTS)
 
 H_FILES=$(wildcard $(SRCDIR)/*.h)
 MISC_FILES=Makefile dependencies/Makefile
 ALL_FILES=$(CC_SOURCE_FILES) $(H_FILES) $(MISC_FILES)
 
 # Libraries. SHADER_OUTPUTS only necessary because we don't do include
-# dependency generation for those (yet). Not sure why CC_TOOL_OUTPUTS is
-# necessary.
+# dependency generation for those (yet).
 CC_OBJECT_FILE_PREREQS=\
-  $(DEPENDENCIES)/sfml.build $(SHADER_OUTPUTS) $(CC_TOOL_OUTPUTS)
+  $(DEPENDENCIES)/sfml.build $(SHADER_OUTPUTS)
 
 DISABLE_CC_DEPENDENCY_ANALYSIS=true
 ifneq ('$(MAKECMDGOALS)', 'add')
@@ -107,13 +107,14 @@ $(GENDIR)/%.pb.cc: \
 	@echo Compiling ./$<
 	$(PROTOC) --proto_path=$(SRCDIR) --cpp_out=$(GENDIR) ./$<
 
-# Proto mesh files.
-$(GENDIR)/%.mesh.pb: \
-  $(SRCDIR)/%.mesh.pb $(PROTO_FILES)
+# Proto data files.
+$(GENDIR)/%.pb: \
+  $(SRCDIR)/%.pb $(PROTO_FILES)
 	$(MKDIR)
 	@echo Processing ./$<
 	cat ./$< | $(PROTOC) --proto_path=$(SRCDIR) \
-	    --encode=mobius.proto.mesh $(PROTO_FILES) > $@ || (rm $@; false)
+	    --encode=mobius.proto$(suffix $(basename $<)) \
+	    $(PROTO_FILES) > $@ || (rm $@; false)
 
 # Shader files.
 $(GENDIR)/%.glsl: \
