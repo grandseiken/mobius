@@ -20,10 +20,14 @@ World::World(const std::string& path, Renderer& renderer)
       auto& portal = *chunk.portals.rbegin();
       portal.chunk_name = portal_proto.chunk_name(),
       portal.portal_mesh.reset(new Mesh{portal_proto.portal_mesh()}),
-      portal.local_origin = load_vec3(portal_proto.local_origin());
-      portal.local_normal = load_vec3(portal_proto.local_normal()),
-      portal.remote_origin = load_vec3(portal_proto.remote_origin()),
-      portal.remote_normal = load_vec3(portal_proto.remote_normal());
+
+      portal.local_origin = load_vec3(portal_proto.local().origin());
+      portal.local_normal = load_vec3(portal_proto.local().normal()),
+      portal.local_up = load_vec3(portal_proto.local().up());
+
+      portal.remote_origin = load_vec3(portal_proto.remote().origin()),
+      portal.remote_normal = load_vec3(portal_proto.remote().normal());
+      portal.remote_up = load_vec3(portal_proto.remote().up());
     }
   }
 }

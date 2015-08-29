@@ -15,8 +15,11 @@ struct Portal {
 
   glm::vec3 local_origin;
   glm::vec3 local_normal;
+  glm::vec3 local_up;
+
   glm::vec3 remote_origin;
   glm::vec3 remote_normal;
+  glm::vec3 remote_up;
 };
 
 struct Chunk {
