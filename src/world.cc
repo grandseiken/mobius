@@ -5,7 +5,7 @@
 
 World::World(const std::string& path, Renderer& renderer)
 : _renderer(renderer)
-, _player{_collision, {0, 8, 0}}
+, _player{_collision, {0, 3, 0}}
 {
   auto world = load_proto<mobius::proto::world>(path);
   for (const auto& chunk_proto : world.chunk()) {
@@ -50,6 +50,9 @@ void World::render() const
   auto it = _chunks.find(_active_chunk);
   if (it != _chunks.end()) {
     _renderer.mesh(*it->second.mesh);
+    for (const auto& portal : it->second.portals) {
+      _renderer.stencil(*portal.portal_mesh);
+    }
   }
   _renderer.grain(1. / 32);
   _renderer.render();

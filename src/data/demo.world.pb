@@ -35,8 +35,31 @@ chunk: {
         colour: {r: .35, g: .43, b: .46}
       }
       geometry: 0
-      scale: {x: 8, y: -8, z: 8}
-      translate: {x: 0, y: 6, z: 0}
+      scale: {x: 4, y: -4, z: 4}
+      translate: {x: 0, y: 2, z: 0}
+    }
+  }
+
+  portal: {
+    chunk_name: "entryway"
+    portal_mesh: {
+      vertex: {x: -1, y: -1, z: 0}
+      vertex: {x:  1, y: -1, z: 0}
+      vertex: {x: -1, y:  1, z: 0}
+      vertex: {x:  1, y:  1, z: 0}
+
+      geometry: {
+        quad: {a: 0, b: 1, c: 3, d: 2}
+      }
+
+      submesh: {
+        flags: 2
+        material: {
+          colour: {r: .5, g: .5, b: .5}
+        }
+        geometry: 0
+        translate: {x: 0, y: -1, z: -4}
+      }
     }
   }
 }

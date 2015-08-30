@@ -86,6 +86,8 @@ namespace {
 #include "../gen/shaders/main.fragment.glsl.h"
 #include "../gen/shaders/quad.vertex.glsl.h"
 #include "../gen/shaders/grain.fragment.glsl.h"
+#include "../gen/shaders/stencil.vertex.glsl.h"
+#include "../gen/shaders/stencil.fragment.glsl.h"
 #include "../gen/tools/simplex_lut.h"
 
 static const float quad_vertices[] = {
@@ -124,6 +126,9 @@ Renderer::Renderer()
   _grain_program = create_program("grain", {
       SHADER(quad_vertex, GL_VERTEX_SHADER),
       SHADER(grain_fragment, GL_FRAGMENT_SHADER)});
+  _stencil_program = create_program("stencil", {
+      SHADER(stencil_vertex, GL_VERTEX_SHADER),
+      SHADER(stencil_fragment, GL_FRAGMENT_SHADER)});
 
   glGenTextures(1, &_simplex_gradient_lut);
   glBindTexture(GL_TEXTURE_1D, _simplex_gradient_lut);
@@ -312,6 +317,35 @@ void Renderer::mesh(const Mesh& mesh) const
   glActiveTexture(GL_TEXTURE1);
   glBindTexture(GL_TEXTURE_1D, _simplex_permutation_lut);
   glBindSampler(1, _sampler);
+
+  glBindVertexArray(mesh.vao());
+  glDrawElements(GL_TRIANGLES, mesh.vertex_count(), GL_UNSIGNED_SHORT, 0);
+  glUseProgram(0);
+}
+
+void Renderer::stencil(const Mesh& mesh) const
+{
+  compute_transform();
+
+  glEnable(GL_DEPTH_TEST);
+  glDepthMask(GL_TRUE);
+  glDepthFunc(GL_LEQUAL);
+  glDepthRange(0, 1);
+  glDisable(GL_BLEND);
+
+  glUseProgram(_stencil_program);
+  glUniformMatrix4fv(
+      glGetUniformLocation(_stencil_program, "world_transform"),
+      1, GL_FALSE, glm::value_ptr(_world_transform));
+  glUniformMatrix4fv(
+      glGetUniformLocation(_stencil_program, "vp_transform"),
+      1, GL_FALSE, glm::value_ptr(_vp_transform));
+
+  glUniform3fv(
+      glGetUniformLocation(_main_program, "light_source"), 1,
+      glm::value_ptr(_light.source));
+  glUniform1f(
+      glGetUniformLocation(_main_program, "light_intensity"), _light.intensity);
 
   glBindVertexArray(mesh.vao());
   glDrawElements(GL_TRIANGLES, mesh.vertex_count(), GL_UNSIGNED_SHORT, 0);

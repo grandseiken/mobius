@@ -24,6 +24,7 @@ public:
 
   void clear() const;
   void mesh(const Mesh& mesh) const;
+  void stencil(const Mesh& mesh) const;
   void grain(float amount) const;
   void render() const;
 
@@ -36,6 +37,7 @@ private:
 
   uint32_t _main_program = 0;
   uint32_t _grain_program = 0;
+  uint32_t _stencil_program = 0;
   uint32_t _simplex_gradient_lut = 0;
   uint32_t _simplex_permutation_lut = 0;
   uint32_t _sampler = 0;
