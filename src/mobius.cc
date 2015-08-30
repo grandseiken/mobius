@@ -32,7 +32,7 @@ int main(int argc, char** argv)
 
   sf::ContextSettings settings;
   settings.depthBits = 0;
-  settings.stencilBits = 8;
+  settings.stencilBits = 0;
   settings.antialiasingLevel = 1;
   settings.majorVersion = 3;
   settings.minorVersion = 2;

@@ -217,15 +217,17 @@ void Renderer::resize(const glm::ivec2& dimensions)
         GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
     glBindTexture(target, _fbd);
     glTexImage2D(
-        GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT24,
+        GL_TEXTURE_2D, 0, GL_DEPTH24_STENCIL8,
         _dimensions.x, _dimensions.y, 0,
-        GL_DEPTH_COMPONENT, GL_UNSIGNED_BYTE, nullptr);
+        GL_DEPTH_STENCIL, GL_UNSIGNED_BYTE, nullptr);
   }
   glBindFramebuffer(GL_FRAMEBUFFER, _fbo);
   glFramebufferTexture2D(
       GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, target, _fbt, 0);
   glFramebufferTexture2D(
       GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, target, _fbd, 0);
+  glFramebufferTexture2D(
+      GL_FRAMEBUFFER, GL_STENCIL_ATTACHMENT, target, _fbd, 0);
 }
 
 void Renderer::perspective(float fov, float z_near, float z_far)
@@ -267,7 +269,7 @@ void Renderer::clear() const
   glBindFramebuffer(GL_DRAW_FRAMEBUFFER, _fbo);
   glEnable(GL_MULTISAMPLE);
   glClearColor(0, 0, 0, 0);
-  glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+  glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
 }
 
 void Renderer::mesh(const Mesh& mesh) const
