@@ -11,6 +11,15 @@ chunk: {
     vertex: {x: -1, y:  1, z:  1}
     vertex: {x:  1, y:  1, z:  1}
 
+    vertex: {x: -.25, y:  -1, z: -1}
+    vertex: {x:  .25, y:  -1, z: -1}
+    vertex: {x: -.25, y: -.5, z: -1}
+    vertex: {x:  .25, y: -.5, z: -1}
+    vertex: {x: -.25, y: 1, z: -.25}
+    vertex: {x:  .25, y: 1, z: -.25}
+    vertex: {x: -.25, y: 1, z:  .25}
+    vertex: {x:  .25, y: 1, z:  .25}
+
     geometry: {
       quad: {a: 0, b: 2, c: 3, d: 1}
       quad: {a: 4, b: 5, c: 7, d: 6}
@@ -18,6 +27,22 @@ chunk: {
       quad: {a: 1, b: 3, c: 7, d: 5}
       quad: {a: 0, b: 1, c: 5, d: 4}
       quad: {a: 2, b: 6, c: 7, d: 3}
+    }
+
+    geometry: {
+      quad: {a: 4, b: 6, c: 7, d: 5}
+      quad: {a: 0, b: 2, c: 6, d: 4}
+      quad: {a: 1, b: 5, c: 7, d: 3}
+      quad: {a: 0, b: 4, c: 5, d: 1}
+
+      quad: {a: 0, b: 8, c: 10, d: 2}
+      quad: {a: 10, b: 11, c: 3, d: 2}
+      quad: {a: 11, b: 9, c: 1, d: 3}
+
+      quad: {a: 2, b: 12, c: 14, d: 6}
+      quad: {a: 14, b: 15, c: 7, d: 6}
+      quad: {a: 15, b: 13, c: 3, d: 7}
+      quad: {a: 13, b: 12, c: 2, d: 3}
     }
 
     submesh: {
@@ -34,14 +59,24 @@ chunk: {
       material: {
         colour: {r: .35, g: .43, b: .46}
       }
-      geometry: 0
-      scale: {x: 4, y: -4, z: 4}
+      geometry: 1
+      scale: {x: 4, y: 4, z: 4}
       translate: {x: 0, y: 2, z: 0}
     }
   }
 
   portal: {
     chunk_name: "entryway"
+    local: {
+      origin: {x: 0, y: -1, z: -4}
+      normal: {x: 0, y: 0, z: 1}
+      up: {x: 0, y: 1, z: 0}
+    }
+    remote: {
+      origin: {x: 0, y: 6, z: 0}
+      normal: {x: 0, y: -1, z: 0}
+      up: {x: 0, y: 0, z: -1}
+    }
     portal_mesh: {
       vertex: {x: -1, y: -1, z: 0}
       vertex: {x:  1, y: -1, z: 0}
@@ -54,11 +89,38 @@ chunk: {
 
       submesh: {
         flags: 2
-        material: {
-          colour: {r: .5, g: .5, b: .5}
-        }
         geometry: 0
         translate: {x: 0, y: -1, z: -4}
+      }
+    }
+  }
+
+  portal: {
+    chunk_name: "entryway"
+    local: {
+      origin: {x: 0, y: 6, z: 0}
+      normal: {x: 0, y: -1, z: 0}
+      up: {x: 0, y: 0, z: -1}
+    }
+    remote: {
+      origin: {x: 0, y: -1, z: -4}
+      normal: {x: 0, y: 0, z: 1}
+      up: {x: 0, y: 1, z: 0}
+    }
+    portal_mesh: {
+      vertex: {x: -1, y: 0, z: -1}
+      vertex: {x:  1, y: 0, z: -1}
+      vertex: {x: -1, y: 0, z:  1}
+      vertex: {x:  1, y: 0, z:  1}
+
+      geometry: {
+        quad: {a: 0, b: 1, c: 3, d: 2}
+      }
+
+      submesh: {
+        flags: 2
+        geometry: 0
+        translate: {x: 0, y: 6, z: 0}
       }
     }
   }

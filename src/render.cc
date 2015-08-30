@@ -233,6 +233,10 @@ void Renderer::resize(const glm::ivec2& dimensions)
       GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, target, _fbd, 0);
   glFramebufferTexture2D(
       GL_FRAMEBUFFER, GL_STENCIL_ATTACHMENT, target, _fbd, 0);
+
+  if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
+    std::cerr << "Framebuffer is not complete\n";
+  }
 }
 
 void Renderer::perspective(float fov, float z_near, float z_far)
@@ -274,13 +278,18 @@ void Renderer::clear() const
   glBindFramebuffer(GL_DRAW_FRAMEBUFFER, _fbo);
   glEnable(GL_MULTISAMPLE);
   glClearColor(0, 0, 0, 0);
+  glClearStencil(0x00);
   glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
 }
 
-void Renderer::mesh(const Mesh& mesh) const
+void Renderer::mesh(const Mesh& mesh, uint32_t stencil_target) const
 {
   compute_transform();
 
+  glEnable(GL_STENCIL_TEST);
+  glStencilOp(GL_KEEP, GL_KEEP, GL_KEEP);
+  glStencilMask(0x00);
+  glStencilFunc(GL_EQUAL, stencil_target, 0xff);
   glEnable(GL_DEPTH_TEST);
   glDepthMask(GL_TRUE);
   glDepthFunc(GL_LEQUAL);
@@ -323,12 +332,16 @@ void Renderer::mesh(const Mesh& mesh) const
   glUseProgram(0);
 }
 
-void Renderer::stencil(const Mesh& mesh) const
+void Renderer::stencil(const Mesh& mesh, uint32_t stencil_write) const
 {
   compute_transform();
 
+  glEnable(GL_STENCIL_TEST);
+  glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE);
+  glStencilMask(0xff);
+  glStencilFunc(GL_ALWAYS, stencil_write, 0xff);
   glEnable(GL_DEPTH_TEST);
-  glDepthMask(GL_TRUE);
+  glDepthMask(GL_FALSE);
   glDepthFunc(GL_LEQUAL);
   glDepthRange(0, 1);
   glDisable(GL_BLEND);
@@ -354,6 +367,11 @@ void Renderer::stencil(const Mesh& mesh) const
 
 void Renderer::grain(float amount) const
 {
+  glDisable(GL_STENCIL_TEST);
+  glDisable(GL_DEPTH_TEST);
+  glEnable(GL_BLEND);
+  glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
   glUseProgram(_grain_program);
   glUniform1f(glGetUniformLocation(_grain_program, "amount"), amount);
   glUniform1f(glGetUniformLocation(_grain_program, "frame"), _frame);
@@ -370,10 +388,6 @@ void Renderer::grain(float amount) const
   glActiveTexture(GL_TEXTURE1);
   glBindTexture(GL_TEXTURE_1D, _simplex_permutation_lut);
   glBindSampler(1, _sampler);
-
-  glDisable(GL_DEPTH_TEST);
-  glEnable(GL_BLEND);
-  glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
   glBindVertexArray(_grain_vao);
   glDrawElements(GL_TRIANGLES, sizeof(quad_indices) / sizeof(quad_indices[0]),

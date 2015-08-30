@@ -9,17 +9,18 @@
 #include <unordered_map>
 #include <vector>
 
+struct Orientation {
+  glm::vec3 origin;
+  glm::vec3 normal;
+  glm::vec3 up;
+};
+
 struct Portal {
   std::string chunk_name;
   std::unique_ptr<Mesh> portal_mesh;
 
-  glm::vec3 local_origin;
-  glm::vec3 local_normal;
-  glm::vec3 local_up;
-
-  glm::vec3 remote_origin;
-  glm::vec3 remote_normal;
-  glm::vec3 remote_up;
+  Orientation local;
+  Orientation remote;
 };
 
 struct Chunk {

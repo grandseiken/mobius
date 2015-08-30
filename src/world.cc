@@ -2,6 +2,18 @@
 #include "mesh.h"
 #include "proto_util.h"
 #include "render.h"
+#include <glm/mat4x4.hpp>
+#include <glm/gtc/matrix_transform.hpp>
+
+namespace {
+  glm::mat4 orientation_matrix(const Orientation& orientation, bool direction)
+  {
+    auto target = direction ?
+        orientation.origin + orientation.normal :
+        orientation.origin - orientation.normal;
+    return glm::lookAt(orientation.origin, target, orientation.up);
+  }
+}
 
 World::World(const std::string& path, Renderer& renderer)
 : _renderer(renderer)
@@ -21,13 +33,13 @@ World::World(const std::string& path, Renderer& renderer)
       portal.chunk_name = portal_proto.chunk_name(),
       portal.portal_mesh.reset(new Mesh{portal_proto.portal_mesh()}),
 
-      portal.local_origin = load_vec3(portal_proto.local().origin());
-      portal.local_normal = load_vec3(portal_proto.local().normal()),
-      portal.local_up = load_vec3(portal_proto.local().up());
+      portal.local.origin = load_vec3(portal_proto.local().origin());
+      portal.local.normal = load_vec3(portal_proto.local().normal()),
+      portal.local.up = load_vec3(portal_proto.local().up());
 
-      portal.remote_origin = load_vec3(portal_proto.remote().origin()),
-      portal.remote_normal = load_vec3(portal_proto.remote().normal());
-      portal.remote_up = load_vec3(portal_proto.remote().up());
+      portal.remote.origin = load_vec3(portal_proto.remote().origin()),
+      portal.remote.normal = load_vec3(portal_proto.remote().normal());
+      portal.remote.up = load_vec3(portal_proto.remote().up());
     }
   }
 }
@@ -46,12 +58,26 @@ void World::update(const ControlData& controls)
 void World::render() const
 {
   _renderer.clear();
-  _renderer.world(glm::mat4{});
   auto it = _chunks.find(_active_chunk);
   if (it != _chunks.end()) {
-    _renderer.mesh(*it->second.mesh);
+    _renderer.world(glm::mat4{});
+    _renderer.mesh(*it->second.mesh, 0);
+
+    uint32_t stencil = 0;
     for (const auto& portal : it->second.portals) {
-      _renderer.stencil(*portal.portal_mesh);
+      auto jt = _chunks.find(portal.chunk_name);
+      if (jt == _chunks.end()) {
+        continue;
+      }
+      auto local = orientation_matrix(portal.local, false);
+      auto remote = orientation_matrix(portal.remote, true);
+
+      _renderer.world(glm::mat4{});
+      _renderer.stencil(*portal.portal_mesh, stencil);
+
+      _renderer.world(glm::inverse(local) * remote);
+      _renderer.mesh(*jt->second.mesh, stencil);
+      ++stencil;
     }
   }
   _renderer.grain(1. / 32);

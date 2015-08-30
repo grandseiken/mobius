@@ -23,8 +23,8 @@ public:
   void light(const glm::vec3& source, float intensity);
 
   void clear() const;
-  void mesh(const Mesh& mesh) const;
-  void stencil(const Mesh& mesh) const;
+  void mesh(const Mesh& mesh, uint32_t stencil_target) const;
+  void stencil(const Mesh& mesh, uint32_t stencil_write) const;
   void grain(float amount) const;
   void render() const;
 
