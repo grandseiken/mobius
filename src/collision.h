@@ -20,7 +20,7 @@ public:
 
   glm::vec3 translation(
     const Object& object, const std::vector<Object>& environment,
-    const glm::vec3& vector, bool recursive = false) const;
+    const glm::vec3& vector, uint32_t iterations = 1) const;
 
 private:
   float ray_tri_intersection(

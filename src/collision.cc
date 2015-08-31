@@ -81,10 +81,10 @@ float Collision::coefficient(
 
 glm::vec3 Collision::translation(
     const Object& object, const std::vector<Object>& environment,
-    const glm::vec3& vector, bool recursive) const
+    const glm::vec3& vector, uint32_t iterations) const
 {
   static const float epsilon = 1. / (1024 * 1024);
-  if (!recursive) {
+  if (iterations == 1) {
     return vector * coefficient(object, environment, vector, nullptr);
   }
 
@@ -95,7 +95,10 @@ glm::vec3 Collision::translation(
   }
 
   auto first_translation = scale * vector;
-  if (glm::l2Norm(remaining) < epsilon) {
+  // Stop if remaining is sufficiently small or parallel to the original vector.
+  auto parallel_dot = glm::dot(
+      glm::normalize(vector), glm::normalize(remaining));
+  if (glm::l2Norm(remaining) < epsilon || 1 - parallel_dot < epsilon) {
     return first_translation;
   }
 
@@ -103,7 +106,7 @@ glm::vec3 Collision::translation(
       object.mesh,
       glm::translate(glm::mat4{1}, first_translation) * object.transform};
   return first_translation +
-      translation(next_object, environment, remaining, true);
+      translation(next_object, environment, remaining, iterations - 1);
 }
 
 float Collision::ray_tri_intersection(

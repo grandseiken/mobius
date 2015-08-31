@@ -36,7 +36,7 @@ void Player::update(const ControlData& controls,
     velocity = (1.f / 32) * glm::normalize(velocity);
     _position += _collision.translation(
         {&_mesh, glm::translate(glm::mat4{}, _position)},
-        environment, velocity, true /* recursive */);
+        environment, velocity, 4 /* iterations */);
   }
 
   if (controls.jump) {
