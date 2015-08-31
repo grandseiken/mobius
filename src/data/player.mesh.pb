@@ -34,26 +34,22 @@ submesh: {
   }
   geometry: 0
   scale: {x: .125, y: .5, z: .125}
-  translate: {x: 0, y: .5, z: 0}
 }
 
 submesh: {
   flags: 1
   geometry: 1
   scale: {x: .0625, y: .5, z: .0625}
-  translate: {x: 0, y: .5, z: 0}
 }
 
 submesh: {
   flags: 1
   geometry: 1
   scale: {x: .125, y: .25, z: .0625}
-  translate: {x: 0, y: .5, z: 0}
 }
 
 submesh: {
   flags: 1
   geometry: 1
   scale: {x: .0625, y: .25, z: .125}
-  translate: {x: 0, y: .5, z: 0}
 }

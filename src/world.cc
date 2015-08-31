@@ -2,6 +2,7 @@
 #include "mesh.h"
 #include "proto_util.h"
 #include "render.h"
+#include <glm/vec4.hpp>
 #include <glm/mat4x4.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 
@@ -54,18 +55,38 @@ World::World(const std::string& path, Renderer& renderer)
 void World::update(const ControlData& controls)
 {
   auto it = _chunks.find(_active_chunk);
-  if (it != _chunks.end()) {
-    std::vector<Object> environment;
-    environment.push_back({it->second.mesh.get(), glm::mat4{}});
-    for (const auto& portal : it->second.portals) {
-      auto jt = _chunks.find(portal.chunk_name);
-      if (jt == _chunks.end()) {
-        continue;
-      }
-      environment.push_back({jt->second.mesh.get(), portal_matrix(portal)});
-    }
-    _player.update(controls, environment);
+  if (it == _chunks.end()) {
+    return;
   }
+
+  std::vector<Object> environment;
+  environment.push_back({it->second.mesh.get(), _orientation});
+  for (const auto& portal : it->second.portals) {
+    auto jt = _chunks.find(portal.chunk_name);
+    if (jt == _chunks.end()) {
+      continue;
+    }
+    environment.push_back(
+        {jt->second.mesh.get(), _orientation * portal_matrix(portal)});
+  }
+
+  auto player_origin = _player.get_position();
+  _player.update(controls, environment);
+  auto player_move = _player.get_position() - player_origin;
+  for (const auto& portal : it->second.portals) {
+    Object object{portal.portal_mesh.get(), _orientation};
+    // The player origin can slip through if it's exactly between a quad. We
+    // really need a proper fix for this.
+    if (!_collision.intersection(player_origin, player_move, object)) {
+      continue;
+    }
+
+    // We probably want to translate back to the origin at some point.
+    _active_chunk = portal.chunk_name;
+    _orientation = portal_matrix(portal) * _orientation;
+    break;
+  }
+
   _renderer.camera(
     _player.get_head_position(), _player.get_look_position(), {0, 1, 0});
   _renderer.light(_player.get_head_position(), 1.f);
@@ -75,24 +96,26 @@ void World::render() const
 {
   _renderer.clear();
   auto it = _chunks.find(_active_chunk);
-  if (it != _chunks.end()) {
-    _renderer.world(glm::mat4{});
-    _renderer.mesh(*it->second.mesh, 0);
+  if (it == _chunks.end()) {
+    return;
+  }
 
-    uint32_t stencil = 0;
-    for (const auto& portal : it->second.portals) {
-      auto jt = _chunks.find(portal.chunk_name);
-      if (jt == _chunks.end()) {
-        continue;
-      }
-      ++stencil;
+  _renderer.world(_orientation);
+  _renderer.mesh(*it->second.mesh, 0);
 
-      _renderer.world(glm::mat4{});
-      _renderer.stencil(*portal.portal_mesh, stencil);
-
-      _renderer.world(portal_matrix(portal));
-      _renderer.mesh(*jt->second.mesh, stencil);
+  uint32_t stencil = 0;
+  for (const auto& portal : it->second.portals) {
+    auto jt = _chunks.find(portal.chunk_name);
+    if (jt == _chunks.end()) {
+      continue;
     }
+    ++stencil;
+
+    _renderer.world(_orientation);
+    _renderer.stencil(*portal.portal_mesh, stencil);
+
+    _renderer.world(_orientation * portal_matrix(portal));
+    _renderer.mesh(*jt->second.mesh, stencil);
   }
   _renderer.grain(1. / 32);
   _renderer.render();

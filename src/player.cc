@@ -36,7 +36,7 @@ void Player::update(const ControlData& controls,
     velocity = (1.f / 32) * glm::normalize(velocity);
     _position += _collision.translation(
         {&_mesh, glm::translate(glm::mat4{}, _position)},
-        environment, velocity, 4 /* iterations */);
+        environment, velocity, 8 /* iterations */);
   }
 
   if (controls.jump) {
@@ -49,9 +49,14 @@ void Player::update(const ControlData& controls,
   _position -= glm::vec3{0, _fall_speed, 0};
 }
 
+glm::vec3 Player::get_position() const
+{
+  return _position;
+}
+
 glm::vec3 Player::get_head_position() const
 {
-  return _position + glm::vec3{0, .5, 0};
+  return _position + glm::vec3{0, 0, 0};
 }
 
 glm::vec3 Player::get_look_position() const

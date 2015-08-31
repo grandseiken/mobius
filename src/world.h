@@ -4,6 +4,7 @@
 #include "collision.h"
 #include "player.h"
 #include <glm/vec3.hpp>
+#include <glm/mat4x4.hpp>
 #include <memory>
 #include <string>
 #include <unordered_map>
@@ -41,6 +42,7 @@ private:
 
   std::unordered_map<std::string, Chunk> _chunks;
   std::string _active_chunk;
+  glm::mat4 _orientation;
   Collision _collision;
   Player _player;
 };

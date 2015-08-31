@@ -23,6 +23,7 @@ float Collision::coefficient(
   // line up with the split in e.g. a quad it can fall through. Currently this
   // is solved by adding redundant vertices to the objects, but it might need
   // some thought.
+  // (The same problem happens with intersections through portals.)
   float bound_scale = 1;
   auto bound_by = [&](const glm::vec3& v, bool positive, const Triangle& tri)
   {
@@ -107,6 +108,20 @@ glm::vec3 Collision::translation(
       glm::translate(glm::mat4{1}, first_translation) * object.transform};
   return first_translation +
       translation(next_object, environment, remaining, iterations - 1);
+}
+
+bool Collision::intersection(
+    const glm::vec3& origin, const glm::vec3& direction,
+    const Object& object) const
+{
+  for (const auto& t : object.mesh->physical_faces()) {
+    auto tt = object_triangle(t, object.transform);
+    float intersect = ray_tri_intersection(origin, direction, tt);
+    if (intersect >= 0 && intersect < 1) {
+      return true;
+    }
+  }
+  return false;
 }
 
 float Collision::ray_tri_intersection(

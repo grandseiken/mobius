@@ -22,6 +22,10 @@ public:
     const Object& object, const std::vector<Object>& environment,
     const glm::vec3& vector, uint32_t iterations = 1) const;
 
+  bool intersection(
+    const glm::vec3& origin, const glm::vec3& direction,
+    const Object& object) const;
+
 private:
   float ray_tri_intersection(
     const glm::vec3& origin, const glm::vec3& direction,
