@@ -71,13 +71,13 @@ void World::render() const
       }
       auto local = orientation_matrix(portal.local, false);
       auto remote = orientation_matrix(portal.remote, true);
+      ++stencil;
 
       _renderer.world(glm::mat4{});
       _renderer.stencil(*portal.portal_mesh, stencil);
 
       _renderer.world(glm::inverse(local) * remote);
       _renderer.mesh(*jt->second.mesh, stencil);
-      ++stencil;
     }
   }
   _renderer.grain(1. / 32);

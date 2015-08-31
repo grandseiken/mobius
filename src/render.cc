@@ -208,31 +208,29 @@ void Renderer::resize(const glm::ivec2& dimensions)
   if (samples > 1) {
     glBindTexture(target, _fbt);
     glTexImage2DMultisample(
-        GL_TEXTURE_2D_MULTISAMPLE, samples, GL_RGBA8,
+        target, samples, GL_RGBA8,
         _dimensions.x, _dimensions.y, false);
     glBindTexture(target, _fbd);
     glTexImage2DMultisample(
-        GL_TEXTURE_2D_MULTISAMPLE, samples, GL_DEPTH_COMPONENT24,
+        target, samples, GL_DEPTH24_STENCIL8,
         _dimensions.x, _dimensions.y, false);
   } else {
     glBindTexture(target, _fbt);
     glTexImage2D(
-        GL_TEXTURE_2D, 0, GL_RGBA8,
+        target, 0, GL_RGBA8,
         _dimensions.x, _dimensions.y, 0,
         GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
     glBindTexture(target, _fbd);
     glTexImage2D(
-        GL_TEXTURE_2D, 0, GL_DEPTH24_STENCIL8,
+        target, 0, GL_DEPTH24_STENCIL8,
         _dimensions.x, _dimensions.y, 0,
-        GL_DEPTH_STENCIL, GL_UNSIGNED_BYTE, nullptr);
+        GL_DEPTH_STENCIL, GL_UNSIGNED_INT_24_8, nullptr);
   }
   glBindFramebuffer(GL_FRAMEBUFFER, _fbo);
   glFramebufferTexture2D(
       GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, target, _fbt, 0);
   glFramebufferTexture2D(
-      GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, target, _fbd, 0);
-  glFramebufferTexture2D(
-      GL_FRAMEBUFFER, GL_STENCIL_ATTACHMENT, target, _fbd, 0);
+      GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, target, _fbd, 0);
 
   if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
     std::cerr << "Framebuffer is not complete\n";
@@ -277,7 +275,13 @@ void Renderer::clear() const
 
   glBindFramebuffer(GL_DRAW_FRAMEBUFFER, _fbo);
   glEnable(GL_MULTISAMPLE);
+  glEnable(GL_DEPTH_TEST);
+  glEnable(GL_STENCIL_TEST);
+  glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+  glDepthMask(GL_TRUE);
+  glStencilMask(0xff);
   glClearColor(0, 0, 0, 0);
+  glClearDepth(1);
   glClearStencil(0x00);
   glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
 }
@@ -286,10 +290,15 @@ void Renderer::mesh(const Mesh& mesh, uint32_t stencil_target) const
 {
   compute_transform();
 
-  glEnable(GL_STENCIL_TEST);
-  glStencilOp(GL_KEEP, GL_KEEP, GL_KEEP);
-  glStencilMask(0x00);
-  glStencilFunc(GL_EQUAL, stencil_target, 0xff);
+  glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+  if (stencil_target) {
+    glEnable(GL_STENCIL_TEST);
+    glStencilOp(GL_KEEP, GL_KEEP, GL_KEEP);
+    glStencilMask(0x00);
+    glStencilFunc(GL_EQUAL, stencil_target, 0xff);
+  } else {
+    glDisable(GL_STENCIL_TEST);
+  }
   glEnable(GL_DEPTH_TEST);
   glDepthMask(GL_TRUE);
   glDepthFunc(GL_LEQUAL);
@@ -336,6 +345,7 @@ void Renderer::stencil(const Mesh& mesh, uint32_t stencil_write) const
 {
   compute_transform();
 
+  glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
   glEnable(GL_STENCIL_TEST);
   glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE);
   glStencilMask(0xff);
@@ -367,6 +377,7 @@ void Renderer::stencil(const Mesh& mesh, uint32_t stencil_write) const
 
 void Renderer::grain(float amount) const
 {
+  glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
   glDisable(GL_STENCIL_TEST);
   glDisable(GL_DEPTH_TEST);
   glEnable(GL_BLEND);

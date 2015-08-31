@@ -1,5 +1,7 @@
+out vec4 colour;
+
 void main()
 {
-  discard;
+  colour = vec4(1.);
 }
 
