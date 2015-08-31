@@ -27,6 +27,7 @@ public:
   glm::vec3 get_position() const;
   glm::vec3 get_head_position() const;
   glm::vec3 get_look_position() const;
+  const Mesh& get_mesh() const;
 
 private:
   const Collision& _collision;

@@ -67,7 +67,7 @@ void World::update(const ControlData& controls)
       continue;
     }
     environment.push_back(
-        {jt->second.mesh.get(), _orientation * portal_matrix(portal)});
+        {jt->second.mesh.get(), portal_matrix(portal) * _orientation});
   }
 
   auto player_origin = _player.get_position();
@@ -75,8 +75,8 @@ void World::update(const ControlData& controls)
   auto player_move = _player.get_position() - player_origin;
   for (const auto& portal : it->second.portals) {
     Object object{portal.portal_mesh.get(), _orientation};
-    // The player origin can slip through if it's exactly between a quad. We
-    // really need a proper fix for this.
+    // The player origin can slip through if it's exactly between a quad. Also,
+    // the camera can get a bit too close. We really need a proper fix for this.
     if (!_collision.intersection(player_origin, player_move, object)) {
       continue;
     }
@@ -114,8 +114,14 @@ void World::render() const
     _renderer.world(_orientation);
     _renderer.stencil(*portal.portal_mesh, stencil);
 
-    _renderer.world(_orientation * portal_matrix(portal));
+    auto matrix = portal_matrix(portal);
+    _renderer.world(matrix * _orientation);
     _renderer.mesh(*jt->second.mesh, stencil);
+    if (jt->first == _active_chunk) {
+      auto translate = glm::translate(glm::mat4{}, _player.get_position());
+      _renderer.world(matrix * translate);
+      _renderer.mesh(_player.get_mesh(), stencil);
+    }
   }
   _renderer.grain(1. / 32);
   _renderer.render();

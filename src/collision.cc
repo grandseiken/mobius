@@ -117,7 +117,7 @@ bool Collision::intersection(
   for (const auto& t : object.mesh->physical_faces()) {
     auto tt = object_triangle(t, object.transform);
     float intersect = ray_tri_intersection(origin, direction, tt);
-    if (intersect >= 0 && intersect < 1) {
+    if (intersect >= 0 && intersect <= 1) {
       return true;
     }
   }

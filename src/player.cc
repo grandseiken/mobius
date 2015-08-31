@@ -63,3 +63,8 @@ glm::vec3 Player::get_look_position() const
 {
   return get_head_position() + _look_dir;
 }
+
+const Mesh& Player::get_mesh() const
+{
+  return _mesh;
+}

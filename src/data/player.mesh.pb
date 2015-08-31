@@ -30,7 +30,7 @@ geometry: {
 submesh: {
   flags: 3
   material: {
-    colour: {r: .8, g: .29, b: .09}
+    colour: {r: .86, g: .2, b: .18}
   }
   geometry: 0
   scale: {x: .125, y: .5, z: .125}
