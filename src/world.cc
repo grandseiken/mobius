@@ -13,6 +13,13 @@ namespace {
         orientation.origin - orientation.normal;
     return glm::lookAt(orientation.origin, target, orientation.up);
   }
+
+  glm::mat4 portal_matrix(const Portal& portal)
+  {
+    auto local = orientation_matrix(portal.local, false);
+    auto remote = orientation_matrix(portal.remote, true);
+    return glm::inverse(local) * remote;
+  }
 }
 
 World::World(const std::string& path, Renderer& renderer)
@@ -48,7 +55,16 @@ void World::update(const ControlData& controls)
 {
   auto it = _chunks.find(_active_chunk);
   if (it != _chunks.end()) {
-    _player.update(controls, *it->second.mesh);
+    std::vector<Object> environment;
+    environment.push_back({it->second.mesh.get(), glm::mat4{}});
+    for (const auto& portal : it->second.portals) {
+      auto jt = _chunks.find(portal.chunk_name);
+      if (jt == _chunks.end()) {
+        continue;
+      }
+      environment.push_back({jt->second.mesh.get(), portal_matrix(portal)});
+    }
+    _player.update(controls, environment);
   }
   _renderer.camera(
     _player.get_head_position(), _player.get_look_position(), {0, 1, 0});
@@ -69,14 +85,12 @@ void World::render() const
       if (jt == _chunks.end()) {
         continue;
       }
-      auto local = orientation_matrix(portal.local, false);
-      auto remote = orientation_matrix(portal.remote, true);
       ++stencil;
 
       _renderer.world(glm::mat4{});
       _renderer.stencil(*portal.portal_mesh, stencil);
 
-      _renderer.world(glm::inverse(local) * remote);
+      _renderer.world(portal_matrix(portal));
       _renderer.mesh(*jt->second.mesh, stencil);
     }
   }

@@ -4,6 +4,7 @@
 #include "mesh.h"
 #include <glm/vec2.hpp>
 #include <glm/vec3.hpp>
+#include <vector>
 
 struct ControlData {
   bool left = false;
@@ -15,12 +16,14 @@ struct ControlData {
 };
 
 class Collision;
+class Object;
 class Player {
 public:
 
   Player(const Collision& collision, const glm::vec3& position);
 
-  void update(const ControlData& controls, const Mesh& environment);
+  void update(const ControlData& controls,
+              const std::vector<Object>& environment);
   glm::vec3 get_head_position() const;
   glm::vec3 get_look_position() const;
 

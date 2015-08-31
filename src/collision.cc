@@ -4,11 +4,19 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/packing.hpp>
 #include <glm/gtx/norm.hpp>
-#include <vector>
+
+namespace {
+  Triangle object_triangle(const Triangle& t, const glm::mat4& transform)
+  {
+    return {
+      glm::vec3{transform * glm::vec4{t.a, 1.}},
+      glm::vec3{transform * glm::vec4{t.b, 1.}},
+      glm::vec3{transform * glm::vec4{t.c, 1.}}};
+  }
+}
 
 float Collision::coefficient(
-    const Mesh& object, const Mesh& environment,
-    const glm::mat4x4& object_transform,
+    const Object& object, const std::vector<Object>& environment,
     const glm::vec3& vector, glm::vec3* remaining) const
 {
   // One problem with the collision system is if an object's vertices happen to
@@ -34,22 +42,35 @@ float Collision::coefficient(
 
   // We will want to consider some sort of acceleration structure (spatial
   // index) at some point.
-  for (const auto& v : object.physical_vertices()) {
-    auto vt = glm::vec3{object_transform * glm::vec4{v, 1.}};
-    for (const auto& t : environment.physical_faces()) {
-      bound_by(vt, true, t);
+  for (const auto& v : object.mesh->physical_vertices()) {
+    auto vt = glm::vec3{object.transform * glm::vec4{v, 1.}};
+    for (const auto& env : environment) {
+      for (const auto& t : env.mesh->physical_faces()) {
+        bound_by(vt, true, object_triangle(t, env.transform));
+        if (bound_scale <= 0) {
+          break;
+        }
+      }
+      if (bound_scale <= 0) {
+        break;
+      }
     }
     if (bound_scale <= 0) {
       break;
     }
   }
-  for (const auto& t : object.physical_faces()) {
-    Triangle tt{
-      glm::vec3{object_transform * glm::vec4{t.a, 1.}},
-      glm::vec3{object_transform * glm::vec4{t.b, 1.}},
-      glm::vec3{object_transform * glm::vec4{t.c, 1.}}};
-    for (const auto& v : environment.physical_vertices()) {
-      bound_by(v, false, tt);
+  for (const auto& t : object.mesh->physical_faces()) {
+    auto tt = object_triangle(t, object.transform);
+    for (const auto& env : environment) {
+      for (const auto& v : env.mesh->physical_vertices()) {
+        bound_by(glm::vec3{env.transform * glm::vec4{v, 1.}}, false, tt);
+        if (bound_scale <= 0) {
+          break;
+        }
+      }
+      if (bound_scale <= 0) {
+        break;
+      }
     }
     if (bound_scale <= 0) {
       break;
@@ -59,19 +80,16 @@ float Collision::coefficient(
 }
 
 glm::vec3 Collision::translation(
-    const Mesh& object, const Mesh& environment,
-    const glm::mat4x4& object_transform,
+    const Object& object, const std::vector<Object>& environment,
     const glm::vec3& vector, bool recursive) const
 {
   static const float epsilon = 1. / (1024 * 1024);
   if (!recursive) {
-    return vector * coefficient(
-        object, environment, object_transform, vector, nullptr);
+    return vector * coefficient(object, environment, vector, nullptr);
   }
 
   glm::vec3 remaining;
-  float scale = coefficient(
-      object, environment, object_transform, vector, &remaining);
+  float scale = coefficient(object, environment, vector, &remaining);
   if (scale >= 1) {
     return vector;
   }
@@ -81,10 +99,11 @@ glm::vec3 Collision::translation(
     return first_translation;
   }
 
-  auto next_transform =
-      glm::translate(glm::mat4{1}, first_translation) * object_transform;
-  return first_translation + translation(
-      object, environment, next_transform, remaining, true);
+  Object next_object{
+      object.mesh,
+      glm::translate(glm::mat4{1}, first_translation) * object.transform};
+  return first_translation +
+      translation(next_object, environment, remaining, true);
 }
 
 float Collision::ray_tri_intersection(

@@ -12,7 +12,8 @@ Player::Player(const Collision& collision, const glm::vec3& position)
 {
 }
 
-void Player::update(const ControlData& controls, const Mesh& environment)
+void Player::update(const ControlData& controls,
+                    const std::vector<Object>& environment)
 {
   static const float epsilon = 1. / 1024;
   _angle += (1.f / 2048) * controls.mouse_move;
@@ -34,9 +35,8 @@ void Player::update(const ControlData& controls, const Mesh& environment)
   if (velocity != glm::vec3{0, 0, 0}) {
     velocity = (1.f / 32) * glm::normalize(velocity);
     _position += _collision.translation(
-        _mesh, environment,
-        glm::translate(glm::mat4{}, _position),
-        velocity, true /* recursive */);
+        {&_mesh, glm::translate(glm::mat4{}, _position)},
+        environment, velocity, true /* recursive */);
   }
 
   if (controls.jump) {
@@ -44,8 +44,8 @@ void Player::update(const ControlData& controls, const Mesh& environment)
   }
   _fall_speed = std::min(1. / 4, _fall_speed + 1. / 512);
   _fall_speed *= _collision.coefficient(
-      _mesh, environment,
-      glm::translate(glm::mat4{}, _position), {0, -_fall_speed, 0});
+      {&_mesh, glm::translate(glm::mat4{}, _position)},
+      environment, {0, -_fall_speed, 0});
   _position -= glm::vec3{0, _fall_speed, 0};
 }
 

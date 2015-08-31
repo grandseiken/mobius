@@ -3,19 +3,23 @@
 
 #include <glm/vec3.hpp>
 #include <glm/mat4x4.hpp>
+#include <vector>
 
 struct Triangle;
 class Mesh;
+struct Object {
+  const Mesh* mesh;
+  glm::mat4x4 transform;
+};
+
 class Collision {
 public:
   float coefficient(
-    const Mesh& object, const Mesh& environment,
-    const glm::mat4x4& object_transform,
+    const Object& object, const std::vector<Object>& environment,
     const glm::vec3& vector, glm::vec3* remaining = nullptr) const;
 
   glm::vec3 translation(
-    const Mesh& object, const Mesh& environment,
-    const glm::mat4x4& object_transform,
+    const Object& object, const std::vector<Object>& environment,
     const glm::vec3& vector, bool recursive = false) const;
 
 private:
