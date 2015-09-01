@@ -20,14 +20,14 @@ chunk: {
     vertex: {x: -.25, y: 1, z:  .25}
     vertex: {x:  .25, y: 1, z:  .25}
 
-    vertex: {x: -.25, y:  -1, z: -1.125}
-    vertex: {x:  .25, y:  -1, z: -1.125}
-    vertex: {x: -.25, y: -.5, z: -1.125}
-    vertex: {x:  .25, y: -.5, z: -1.125}
-    vertex: {x: -.25, y: 1.125, z: -.25}
-    vertex: {x:  .25, y: 1.125, z: -.25}
-    vertex: {x: -.25, y: 1.125, z:  .25}
-    vertex: {x:  .25, y: 1.125, z:  .25}
+    vertex: {x: -.25, y:  -1, z: -1.25}
+    vertex: {x:  .25, y:  -1, z: -1.25}
+    vertex: {x: -.25, y: -.5, z: -1.25}
+    vertex: {x:  .25, y: -.5, z: -1.25}
+    vertex: {x: -.25, y: 1.25, z: -.25}
+    vertex: {x:  .25, y: 1.25, z: -.25}
+    vertex: {x: -.25, y: 1.25, z:  .25}
+    vertex: {x:  .25, y: 1.25, z:  .25}
 
     geometry: {
       quad: {a: 0, b: 2, c: 3, d: 1}
@@ -85,12 +85,12 @@ chunk: {
   portal: {
     chunk_name: "entryway"
     local: {
-      origin: {x: 0, y: -1, z: -4.5}
+      origin: {x: 0, y: -1, z: -5}
       normal: {x: 0, y: 0, z: 1}
       up: {x: 0, y: 1, z: 0}
     }
     remote: {
-      origin: {x: 0, y: 6.5, z: 0}
+      origin: {x: 0, y: 6, z: 0}
       normal: {x: 0, y: -1, z: 0}
       up: {x: 0, y: 0, z: -1}
     }
@@ -115,12 +115,12 @@ chunk: {
   portal: {
     chunk_name: "entryway"
     local: {
-      origin: {x: 0, y: 6.5, z: 0}
+      origin: {x: 0, y: 7, z: 0}
       normal: {x: 0, y: -1, z: 0}
       up: {x: 0, y: 0, z: -1}
     }
     remote: {
-      origin: {x: 0, y: -1, z: -4.5}
+      origin: {x: 0, y: -1, z: -4}
       normal: {x: 0, y: 0, z: 1}
       up: {x: 0, y: 1, z: 0}
     }

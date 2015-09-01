@@ -75,9 +75,21 @@ void World::update(const ControlData& controls)
   auto player_move = _player.get_position() - player_origin;
   for (const auto& portal : it->second.portals) {
     Object object{portal.portal_mesh.get(), _orientation};
-    // The player origin can slip through if it's exactly between a quad. Also,
-    // the camera can get a bit too close. We really need a proper fix for this.
-    if (!_collision.intersection(player_origin, player_move, object)) {
+    // For the same reasons as general collision, we need to consider several
+    // vertices of the object to avoid it slipping through quads. This should
+    // prevent any artifacts if the scale factor compensates for the distance
+    // between the player object and the projection quad (and the portals are
+    // symmetrical but separated by a distance greater than size of the player
+    // mesh).
+    bool crossed = false;
+    for (const auto& v : _player.get_mesh().physical_vertices()) {
+      auto point = (1.f / 256) * v + player_origin;
+      if (_collision.intersection(point, player_move, object)) {
+        crossed = true;
+        break;
+      }
+    }
+    if (!crossed) {
       continue;
     }
 
