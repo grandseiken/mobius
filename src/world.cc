@@ -79,11 +79,11 @@ void World::update(const ControlData& controls)
     // vertices of the object to avoid it slipping through quads. This should
     // prevent any artifacts if the scale factor compensates for the distance
     // between the player object and the projection quad (and the portals are
-    // symmetrical but separated by a distance greater than size of the player
-    // mesh).
+    // symmetrical but separated by a distance greater than scaled size of the
+    // player mesh).
     bool crossed = false;
     for (const auto& v : _player.get_mesh().physical_vertices()) {
-      auto point = (1.f / 256) * v + player_origin;
+      auto point = 2.f * v + player_origin;
       if (_collision.intersection(point, player_move, object)) {
         crossed = true;
         break;
@@ -93,7 +93,8 @@ void World::update(const ControlData& controls)
       continue;
     }
 
-    // We probably want to translate back to the origin at some point.
+    // We probably want to translate back to the origin at some point (without
+    // messing with normals, somehow).
     _active_chunk = portal.chunk_name;
     _orientation = portal_matrix(portal) * _orientation;
     break;
@@ -132,6 +133,8 @@ void World::render() const
     if (jt->first == _active_chunk) {
       auto translate = glm::translate(glm::mat4{}, _player.get_position());
       _renderer.world(matrix * translate);
+      // Stencilling isn't quite right when the player is in the middle of
+      // portals.
       _renderer.draw(_player.get_mesh(), stencil);
     }
   }

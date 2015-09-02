@@ -107,7 +107,7 @@ chunk: {
       submesh: {
         flags: 3
         geometry: 0
-        translate: {x: 0, y: -1, z: -4.5}
+        translate: {x: 0, y: -1, z: -5}
       }
     }
   }
@@ -137,7 +137,7 @@ chunk: {
       submesh: {
         flags: 3
         geometry: 0
-        translate: {x: 0, y: 6.5, z: 0}
+        translate: {x: 0, y: 7, z: 0}
       }
     }
   }
