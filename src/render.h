@@ -31,6 +31,10 @@ public:
 
 private:
   void compute_transform() const;
+  // We should really avoid setting uniforms that haven't changed. Maybe using
+  // uniform buffers?
+  void set_mvp_uniforms(uint32_t program) const;
+  void set_simplex_uniforms(uint32_t program) const;
 
   uint32_t _fbo = 0;
   uint32_t _fbt = 0;

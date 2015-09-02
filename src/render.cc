@@ -69,6 +69,39 @@ namespace {
       "Link error in program '" << name << "':\n" << log.get() << "\n";
     return 0;
   }
+
+  void render_settings(
+      bool depth_test, bool depth_mask, bool colour_mask, bool blend)
+  {
+    if (!depth_test && !depth_mask) {
+      glDisable(GL_DEPTH_TEST);
+    } else {
+      glEnable(GL_DEPTH_TEST);
+      glDepthFunc(depth_test ? GL_LEQUAL : GL_ALWAYS);
+      glDepthMask(depth_mask);
+      glDepthRange(0, 1);
+    }
+    glColorMask(colour_mask, colour_mask, colour_mask, colour_mask);
+    if (blend) {
+      glEnable(GL_BLEND);
+      glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    } else {
+      glDisable(GL_BLEND);
+    }
+  }
+
+  void stencil_settings(
+      bool enable_test, uint32_t ref, uint32_t test_mask, uint32_t write_mask) {
+    if (enable_test || write_mask) {
+      glEnable(GL_STENCIL_TEST);
+      glStencilOp(GL_KEEP, GL_KEEP, write_mask ? GL_REPLACE : GL_KEEP);
+      glStencilMask(write_mask);
+      glStencilFunc(
+          enable_test && test_mask ? GL_EQUAL : GL_ALWAYS, ref, test_mask);
+    } else {
+      glDisable(GL_STENCIL_TEST);
+    }
+  }
 }
 
 #define GLEW_CHECK(value) \
@@ -289,25 +322,13 @@ void Renderer::clear() const
 void Renderer::stencil(const Mesh& mesh, uint32_t stencil_write) const
 {
   compute_transform();
-
-  glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
-  glEnable(GL_STENCIL_TEST);
-  glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE);
-  glStencilMask(0xff);
-  glStencilFunc(GL_ALWAYS, stencil_write, 0xff);
-  glEnable(GL_DEPTH_TEST);
-  glDepthMask(GL_FALSE);
-  glDepthFunc(GL_LEQUAL);
-  glDepthRange(0, 1);
-  glDisable(GL_BLEND);
+  render_settings(/* dtest */ true, /* dmask */ false,
+                  /* cmask */ false, /* blend */ false);
+  stencil_settings(/* enable_test */ false, /* ref */ stencil_write,
+                   /* test_mask */ 0xff, /* write_mask */ 0xff);
 
   glUseProgram(_world_program);
-  glUniformMatrix4fv(
-      glGetUniformLocation(_world_program, "world_transform"),
-      1, GL_FALSE, glm::value_ptr(_world_transform));
-  glUniformMatrix4fv(
-      glGetUniformLocation(_world_program, "vp_transform"),
-      1, GL_FALSE, glm::value_ptr(_vp_transform));
+  set_mvp_uniforms(_world_program);
 
   glBindVertexArray(mesh.vao());
   glDrawElements(GL_TRIANGLES, mesh.vertex_count(), GL_UNSIGNED_SHORT, 0);
@@ -317,29 +338,13 @@ void Renderer::stencil(const Mesh& mesh, uint32_t stencil_write) const
 void Renderer::depth(const Mesh& mesh, uint32_t stencil_target) const
 {
   compute_transform();
-
-  glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
-  if (stencil_target) {
-    glEnable(GL_STENCIL_TEST);
-    glStencilOp(GL_KEEP, GL_KEEP, GL_KEEP);
-    glStencilMask(0x00);
-    glStencilFunc(GL_EQUAL, stencil_target, 0xff);
-  } else {
-    glDisable(GL_STENCIL_TEST);
-  }
-  glEnable(GL_DEPTH_TEST);
-  glDepthMask(GL_TRUE);
-  glDepthFunc(GL_LEQUAL);
-  glDepthRange(0, 1);
-  glDisable(GL_BLEND);
+  render_settings(/* dtest */ true, /* dmask */ true,
+                  /* cmask */ false, /* blend */ false);
+  stencil_settings(/* enable_test */ true, /* ref */ stencil_target,
+                   /* test_mask */ 0xff, /* write_mask */ 0x00);
 
   glUseProgram(_world_program);
-  glUniformMatrix4fv(
-      glGetUniformLocation(_world_program, "world_transform"),
-      1, GL_FALSE, glm::value_ptr(_world_transform));
-  glUniformMatrix4fv(
-      glGetUniformLocation(_world_program, "vp_transform"),
-      1, GL_FALSE, glm::value_ptr(_vp_transform));
+  set_mvp_uniforms(_world_program);
 
   glBindVertexArray(mesh.vao());
   glDrawElements(GL_TRIANGLES, mesh.vertex_count(), GL_UNSIGNED_SHORT, 0);
@@ -349,52 +354,23 @@ void Renderer::depth(const Mesh& mesh, uint32_t stencil_target) const
 void Renderer::draw(const Mesh& mesh, uint32_t stencil_target) const
 {
   compute_transform();
-
-  glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
-  if (stencil_target) {
-    glEnable(GL_STENCIL_TEST);
-    glStencilOp(GL_KEEP, GL_KEEP, GL_KEEP);
-    glStencilMask(0x00);
-    glStencilFunc(GL_EQUAL, stencil_target, 0xff);
-  } else {
-    glDisable(GL_STENCIL_TEST);
-  }
-  glEnable(GL_DEPTH_TEST);
-  glDepthMask(GL_TRUE);
-  glDepthFunc(GL_LEQUAL);
-  glDepthRange(0, 1);
-  glDisable(GL_BLEND);
+  render_settings(/* dtest */ true, /* dmask */ true,
+                  /* cmask */ true, /* blend */ false);
+  stencil_settings(/* enable_test */ stencil_target, /* ref */ stencil_target,
+                   /* test_mask */ 0xff, /* write_mask */ 0x00);
 
   glUseProgram(_draw_program);
+  set_simplex_uniforms(_draw_program);
+  set_mvp_uniforms(_draw_program);
   glUniformMatrix3fv(
       glGetUniformLocation(_draw_program, "normal_transform"),
       1, GL_FALSE, glm::value_ptr(_normal_transform));
-  glUniformMatrix4fv(
-      glGetUniformLocation(_draw_program, "world_transform"),
-      1, GL_FALSE, glm::value_ptr(_world_transform));
-  glUniformMatrix4fv(
-      glGetUniformLocation(_draw_program, "vp_transform"),
-      1, GL_FALSE, glm::value_ptr(_vp_transform));
 
   glUniform3fv(
       glGetUniformLocation(_draw_program, "light_source"), 1,
       glm::value_ptr(_light.source));
   glUniform1f(
       glGetUniformLocation(_draw_program, "light_intensity"), _light.intensity);
-
-  glUniform1i(
-      glGetUniformLocation(_draw_program, "simplex_gradient_lut"), 0);
-  glActiveTexture(GL_TEXTURE0);
-  glBindTexture(GL_TEXTURE_1D, _simplex_gradient_lut);
-  glBindSampler(0, _sampler);
-  glUniform1i(
-      glGetUniformLocation(_draw_program, "simplex_use_permutation_lut"),
-      uint32_t(_max_texture_size) >= ARRAY_LENGTH(gen_simplex_permutation_lut));
-  glUniform1i(
-      glGetUniformLocation(_draw_program, "simplex_permutation_lut"), 1);
-  glActiveTexture(GL_TEXTURE1);
-  glBindTexture(GL_TEXTURE_1D, _simplex_permutation_lut);
-  glBindSampler(1, _sampler);
 
   glBindVertexArray(mesh.vao());
   glDrawElements(GL_TRIANGLES, mesh.vertex_count(), GL_UNSIGNED_SHORT, 0);
@@ -403,28 +379,15 @@ void Renderer::draw(const Mesh& mesh, uint32_t stencil_target) const
 
 void Renderer::grain(float amount) const
 {
-  glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
-  glDisable(GL_STENCIL_TEST);
-  glDisable(GL_DEPTH_TEST);
-  glEnable(GL_BLEND);
-  glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+  render_settings(/* dtest */ false, /* dmask */ false,
+                  /* cmask */ true, /* blend */ true);
+  stencil_settings(/* enable_test */ false, /* ref */ 0x00,
+                   /* test_mask */ 0xff, /* write_mask */ 0x00);
 
   glUseProgram(_grain_program);
   glUniform1f(glGetUniformLocation(_grain_program, "amount"), amount);
   glUniform1f(glGetUniformLocation(_grain_program, "frame"), _frame);
-  glUniform1i(
-      glGetUniformLocation(_grain_program, "simplex_gradient_lut"), 0);
-  glActiveTexture(GL_TEXTURE0);
-  glBindTexture(GL_TEXTURE_1D, _simplex_gradient_lut);
-  glBindSampler(0, _sampler);
-  glUniform1i(
-      glGetUniformLocation(_grain_program, "simplex_use_permutation_lut"),
-      uint32_t(_max_texture_size) >= ARRAY_LENGTH(gen_simplex_permutation_lut));
-  glUniform1i(
-      glGetUniformLocation(_grain_program, "simplex_permutation_lut"), 1);
-  glActiveTexture(GL_TEXTURE1);
-  glBindTexture(GL_TEXTURE_1D, _simplex_permutation_lut);
-  glBindSampler(1, _sampler);
+  set_simplex_uniforms(_grain_program);
 
   glBindVertexArray(_grain_vao);
   glDrawElements(GL_TRIANGLES, sizeof(quad_indices) / sizeof(quad_indices[0]),
@@ -459,4 +422,32 @@ void Renderer::compute_transform() const
     _normal_transform =
         glm::transpose(glm::inverse(glm::mat3{_world_transform}));
   }
+}
+
+void Renderer::set_mvp_uniforms(uint32_t program) const
+{
+  glUniformMatrix4fv(
+      glGetUniformLocation(program, "world_transform"),
+      1, GL_FALSE, glm::value_ptr(_world_transform));
+  glUniformMatrix4fv(
+      glGetUniformLocation(program, "vp_transform"),
+      1, GL_FALSE, glm::value_ptr(_vp_transform));
+}
+
+void Renderer::set_simplex_uniforms(uint32_t program) const
+{
+  glUniform1i(
+      glGetUniformLocation(program, "simplex_gradient_lut"), 0);
+  glActiveTexture(GL_TEXTURE0);
+  glBindTexture(GL_TEXTURE_1D, _simplex_gradient_lut);
+  glBindSampler(0, _sampler);
+  glUniform1i(
+      glGetUniformLocation(program, "simplex_use_permutation_lut"),
+      uint32_t(_max_texture_size) >= ARRAY_LENGTH(gen_simplex_permutation_lut));
+  glUniform1i(
+      glGetUniformLocation(program, "simplex_permutation_lut"), 1);
+  glActiveTexture(GL_TEXTURE1);
+  glBindTexture(GL_TEXTURE_1D, _simplex_permutation_lut);
+  glBindSampler(1, _sampler);
+
 }
