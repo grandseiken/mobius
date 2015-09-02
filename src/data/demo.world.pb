@@ -109,6 +109,12 @@ chunk: {
         geometry: 0
         translate: {x: 0, y: -1, z: -5}
       }
+
+      submesh: {
+        flags: 2
+        geometry: 0
+        translate: {x: 0, y: -1, z: -4}
+      }
     }
   }
 
@@ -138,6 +144,12 @@ chunk: {
         flags: 3
         geometry: 0
         translate: {x: 0, y: 7, z: 0}
+      }
+
+      submesh: {
+        flags: 2
+        geometry: 0
+        translate: {x: 0, y: 6, z: 0}
       }
     }
   }

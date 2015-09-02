@@ -127,6 +127,9 @@ void World::render() const
     }
     ++stencil;
 
+    // Why is drawing to the stencil buffer so slow? Anyway, it isn't yet a
+    // total solution, as geometry in an overlapping space that happens to pass
+    // in front of the stencil will still be drawn.
     _renderer.world(_orientation);
     _renderer.stencil(*portal.portal_mesh, stencil);
 
@@ -153,9 +156,6 @@ void World::render() const
     if (jt->first == _active_chunk) {
       auto translate = glm::translate(glm::mat4{}, _player.get_position());
       _renderer.world(matrix * translate);
-      // Stencilling isn't quite right when the player is in the middle of
-      // portals - how do we fix it without possibly drawing the player in
-      // some overlapping space?
       _renderer.draw(_player.get_mesh(), stencil);
     }
   }
