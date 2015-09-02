@@ -82,11 +82,11 @@ namespace {
 
 #define ARRAY_LENGTH(array) (sizeof(array) / sizeof(array[0]))
 
-#include "../gen/shaders/main.vertex.glsl.h"
-#include "../gen/shaders/main.fragment.glsl.h"
+#include "../gen/shaders/draw.vertex.glsl.h"
+#include "../gen/shaders/draw.fragment.glsl.h"
 #include "../gen/shaders/quad.vertex.glsl.h"
 #include "../gen/shaders/grain.fragment.glsl.h"
-#include "../gen/shaders/stencil.vertex.glsl.h"
+#include "../gen/shaders/world.vertex.glsl.h"
 #include "../gen/shaders/stencil.fragment.glsl.h"
 #include "../gen/tools/simplex_lut.h"
 
@@ -120,14 +120,14 @@ Renderer::Renderer()
   // sizes? Or just use several 1D textures and pack them in?
   glGetIntegerv(GL_MAX_TEXTURE_SIZE, &_max_texture_size);
 
-  _main_program = create_program("main", {
-      SHADER(main_vertex, GL_VERTEX_SHADER),
-      SHADER(main_fragment, GL_FRAGMENT_SHADER)});
+  _draw_program = create_program("main", {
+      SHADER(draw_vertex, GL_VERTEX_SHADER),
+      SHADER(draw_fragment, GL_FRAGMENT_SHADER)});
   _grain_program = create_program("grain", {
       SHADER(quad_vertex, GL_VERTEX_SHADER),
       SHADER(grain_fragment, GL_FRAGMENT_SHADER)});
   _stencil_program = create_program("stencil", {
-      SHADER(stencil_vertex, GL_VERTEX_SHADER),
+      SHADER(world_vertex, GL_VERTEX_SHADER),
       SHADER(stencil_fragment, GL_FRAGMENT_SHADER)});
 
   glGenTextures(1, &_simplex_gradient_lut);
@@ -177,7 +177,7 @@ Renderer::~Renderer()
     glDeleteTextures(1, &_fbt);
     glDeleteTextures(1, &_fbd);
   }
-  glDeleteProgram(_main_program);
+  glDeleteProgram(_draw_program);
   glDeleteProgram(_grain_program);
   glDeleteBuffers(1, &_quad_vbo);
   glDeleteBuffers(1, &_quad_ibo);
@@ -286,61 +286,6 @@ void Renderer::clear() const
   glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
 }
 
-void Renderer::mesh(const Mesh& mesh, uint32_t stencil_target) const
-{
-  compute_transform();
-
-  glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
-  if (stencil_target) {
-    glEnable(GL_STENCIL_TEST);
-    glStencilOp(GL_KEEP, GL_KEEP, GL_KEEP);
-    glStencilMask(0x00);
-    glStencilFunc(GL_EQUAL, stencil_target, 0xff);
-  } else {
-    glDisable(GL_STENCIL_TEST);
-  }
-  glEnable(GL_DEPTH_TEST);
-  glDepthMask(GL_TRUE);
-  glDepthFunc(GL_LEQUAL);
-  glDepthRange(0, 1);
-  glDisable(GL_BLEND);
-
-  glUseProgram(_main_program);
-  glUniformMatrix3fv(
-      glGetUniformLocation(_main_program, "normal_transform"),
-      1, GL_FALSE, glm::value_ptr(_normal_transform));
-  glUniformMatrix4fv(
-      glGetUniformLocation(_main_program, "world_transform"),
-      1, GL_FALSE, glm::value_ptr(_world_transform));
-  glUniformMatrix4fv(
-      glGetUniformLocation(_main_program, "vp_transform"),
-      1, GL_FALSE, glm::value_ptr(_vp_transform));
-
-  glUniform3fv(
-      glGetUniformLocation(_main_program, "light_source"), 1,
-      glm::value_ptr(_light.source));
-  glUniform1f(
-      glGetUniformLocation(_main_program, "light_intensity"), _light.intensity);
-
-  glUniform1i(
-      glGetUniformLocation(_main_program, "simplex_gradient_lut"), 0);
-  glActiveTexture(GL_TEXTURE0);
-  glBindTexture(GL_TEXTURE_1D, _simplex_gradient_lut);
-  glBindSampler(0, _sampler);
-  glUniform1i(
-      glGetUniformLocation(_main_program, "simplex_use_permutation_lut"),
-      uint32_t(_max_texture_size) >= ARRAY_LENGTH(gen_simplex_permutation_lut));
-  glUniform1i(
-      glGetUniformLocation(_main_program, "simplex_permutation_lut"), 1);
-  glActiveTexture(GL_TEXTURE1);
-  glBindTexture(GL_TEXTURE_1D, _simplex_permutation_lut);
-  glBindSampler(1, _sampler);
-
-  glBindVertexArray(mesh.vao());
-  glDrawElements(GL_TRIANGLES, mesh.vertex_count(), GL_UNSIGNED_SHORT, 0);
-  glUseProgram(0);
-}
-
 void Renderer::stencil(const Mesh& mesh, uint32_t stencil_write) const
 {
   compute_transform();
@@ -365,10 +310,65 @@ void Renderer::stencil(const Mesh& mesh, uint32_t stencil_write) const
       1, GL_FALSE, glm::value_ptr(_vp_transform));
 
   glUniform3fv(
-      glGetUniformLocation(_main_program, "light_source"), 1,
+      glGetUniformLocation(_draw_program, "light_source"), 1,
       glm::value_ptr(_light.source));
   glUniform1f(
-      glGetUniformLocation(_main_program, "light_intensity"), _light.intensity);
+      glGetUniformLocation(_draw_program, "light_intensity"), _light.intensity);
+
+  glBindVertexArray(mesh.vao());
+  glDrawElements(GL_TRIANGLES, mesh.vertex_count(), GL_UNSIGNED_SHORT, 0);
+  glUseProgram(0);
+}
+
+void Renderer::draw(const Mesh& mesh, uint32_t stencil_target) const
+{
+  compute_transform();
+
+  glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+  if (stencil_target) {
+    glEnable(GL_STENCIL_TEST);
+    glStencilOp(GL_KEEP, GL_KEEP, GL_KEEP);
+    glStencilMask(0x00);
+    glStencilFunc(GL_EQUAL, stencil_target, 0xff);
+  } else {
+    glDisable(GL_STENCIL_TEST);
+  }
+  glEnable(GL_DEPTH_TEST);
+  glDepthMask(GL_TRUE);
+  glDepthFunc(GL_LEQUAL);
+  glDepthRange(0, 1);
+  glDisable(GL_BLEND);
+
+  glUseProgram(_draw_program);
+  glUniformMatrix3fv(
+      glGetUniformLocation(_draw_program, "normal_transform"),
+      1, GL_FALSE, glm::value_ptr(_normal_transform));
+  glUniformMatrix4fv(
+      glGetUniformLocation(_draw_program, "world_transform"),
+      1, GL_FALSE, glm::value_ptr(_world_transform));
+  glUniformMatrix4fv(
+      glGetUniformLocation(_draw_program, "vp_transform"),
+      1, GL_FALSE, glm::value_ptr(_vp_transform));
+
+  glUniform3fv(
+      glGetUniformLocation(_draw_program, "light_source"), 1,
+      glm::value_ptr(_light.source));
+  glUniform1f(
+      glGetUniformLocation(_draw_program, "light_intensity"), _light.intensity);
+
+  glUniform1i(
+      glGetUniformLocation(_draw_program, "simplex_gradient_lut"), 0);
+  glActiveTexture(GL_TEXTURE0);
+  glBindTexture(GL_TEXTURE_1D, _simplex_gradient_lut);
+  glBindSampler(0, _sampler);
+  glUniform1i(
+      glGetUniformLocation(_draw_program, "simplex_use_permutation_lut"),
+      uint32_t(_max_texture_size) >= ARRAY_LENGTH(gen_simplex_permutation_lut));
+  glUniform1i(
+      glGetUniformLocation(_draw_program, "simplex_permutation_lut"), 1);
+  glActiveTexture(GL_TEXTURE1);
+  glBindTexture(GL_TEXTURE_1D, _simplex_permutation_lut);
+  glBindSampler(1, _sampler);
 
   glBindVertexArray(mesh.vao());
   glDrawElements(GL_TRIANGLES, mesh.vertex_count(), GL_UNSIGNED_SHORT, 0);

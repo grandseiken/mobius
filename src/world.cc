@@ -113,7 +113,7 @@ void World::render() const
   }
 
   _renderer.world(_orientation);
-  _renderer.mesh(*it->second.mesh, 0);
+  _renderer.draw(*it->second.mesh, 0);
 
   uint32_t stencil = 0;
   for (const auto& portal : it->second.portals) {
@@ -128,11 +128,11 @@ void World::render() const
 
     auto matrix = portal_matrix(portal);
     _renderer.world(matrix * _orientation);
-    _renderer.mesh(*jt->second.mesh, stencil);
+    _renderer.draw(*jt->second.mesh, stencil);
     if (jt->first == _active_chunk) {
       auto translate = glm::translate(glm::mat4{}, _player.get_position());
       _renderer.world(matrix * translate);
-      _renderer.mesh(_player.get_mesh(), stencil);
+      _renderer.draw(_player.get_mesh(), stencil);
     }
   }
   _renderer.grain(1. / 32);
