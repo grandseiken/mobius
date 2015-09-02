@@ -1,7 +1,6 @@
 #include "gamma.glsl.h"
 #include "simplex.glsl.h"
 
-smooth in vec3 vertex_model;
 smooth in vec3 vertex_world;
 flat in vec3 vertex_colour;
 flat in vec3 vertex_normal;
@@ -52,7 +51,7 @@ vec4 dFsimplex3(float scale, float dF, vec3 value)
 void main()
 {
   // We rotate slightly to avoid planar cuts through 3D noise.
-  vec3 seed = mrotm * vertex_model;
+  vec3 seed = mrotm * vertex_world;
   float dF = dFmax(seed);
   vec4 texture = vec4(0.);
   texture += dFsimplex3(2., dF, seed);
