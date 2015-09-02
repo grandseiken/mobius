@@ -24,6 +24,7 @@ public:
 
   void clear() const;
   void stencil(const Mesh& mesh, uint32_t stencil_write) const;
+  void depth(const Mesh& mesh, uint32_t stencil_target) const;
   void draw(const Mesh& mesh, uint32_t stencil_target) const;
   void grain(float amount) const;
   void render() const;
@@ -36,8 +37,8 @@ private:
   uint32_t _fbd = 0;
 
   uint32_t _draw_program = 0;
+  uint32_t _world_program = 0;
   uint32_t _grain_program = 0;
-  uint32_t _stencil_program = 0;
   uint32_t _simplex_gradient_lut = 0;
   uint32_t _simplex_permutation_lut = 0;
   uint32_t _sampler = 0;

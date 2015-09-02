@@ -76,14 +76,16 @@ void World::update(const ControlData& controls)
   for (const auto& portal : it->second.portals) {
     Object object{portal.portal_mesh.get(), _orientation};
     // For the same reasons as general collision, we need to consider several
-    // vertices of the object to avoid it slipping through quads. This should
-    // prevent any artifacts if the scale factor compensates for the distance
-    // between the player object and the projection quad (and the portals are
-    // symmetrical but separated by a distance greater than scaled size of the
-    // player mesh).
+    // vertices of the object to avoid it slipping through quads.
+    //
+    // The scale factor should be large enough such that the scaled width of
+    // the player mesh is less than the distance between corresponding portal
+    // meshes, but small enough that the projection quad never touches the
+    // portal stencil.
     bool crossed = false;
     for (const auto& v : _player.get_mesh().physical_vertices()) {
-      auto point = 2.f * v + player_origin;
+      const float scale_factor = .5f;
+      auto point = scale_factor * v + player_origin;
       if (_collision.intersection(point, player_move, object)) {
         crossed = true;
         break;
@@ -113,8 +115,9 @@ void World::render() const
     return;
   }
 
+  // Establish the depth and stencil buffers.
   _renderer.world(_orientation);
-  _renderer.draw(*it->second.mesh, 0);
+  _renderer.depth(*it->second.mesh, 0);
 
   uint32_t stencil = 0;
   for (const auto& portal : it->second.portals) {
@@ -129,12 +132,30 @@ void World::render() const
 
     auto matrix = portal_matrix(portal);
     _renderer.world(matrix * _orientation);
+    _renderer.depth(*jt->second.mesh, stencil);
+  }
+
+  _renderer.world(_orientation);
+  _renderer.draw(*it->second.mesh, 0);
+
+  // Render the world.
+  stencil = 0;
+  for (const auto& portal : it->second.portals) {
+    auto jt = _chunks.find(portal.chunk_name);
+    if (jt == _chunks.end()) {
+      continue;
+    }
+    ++stencil;
+
+    auto matrix = portal_matrix(portal);
+    _renderer.world(matrix * _orientation);
     _renderer.draw(*jt->second.mesh, stencil);
     if (jt->first == _active_chunk) {
       auto translate = glm::translate(glm::mat4{}, _player.get_position());
       _renderer.world(matrix * translate);
       // Stencilling isn't quite right when the player is in the middle of
-      // portals.
+      // portals - how do we fix it without possibly drawing the player in
+      // some overlapping space?
       _renderer.draw(_player.get_mesh(), stencil);
     }
   }

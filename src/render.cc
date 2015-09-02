@@ -87,7 +87,7 @@ namespace {
 #include "../gen/shaders/quad.vertex.glsl.h"
 #include "../gen/shaders/grain.fragment.glsl.h"
 #include "../gen/shaders/world.vertex.glsl.h"
-#include "../gen/shaders/stencil.fragment.glsl.h"
+#include "../gen/shaders/world.fragment.glsl.h"
 #include "../gen/tools/simplex_lut.h"
 
 static const float quad_vertices[] = {
@@ -126,9 +126,9 @@ Renderer::Renderer()
   _grain_program = create_program("grain", {
       SHADER(quad_vertex, GL_VERTEX_SHADER),
       SHADER(grain_fragment, GL_FRAGMENT_SHADER)});
-  _stencil_program = create_program("stencil", {
+  _world_program = create_program("stencil", {
       SHADER(world_vertex, GL_VERTEX_SHADER),
-      SHADER(stencil_fragment, GL_FRAGMENT_SHADER)});
+      SHADER(world_fragment, GL_FRAGMENT_SHADER)});
 
   glGenTextures(1, &_simplex_gradient_lut);
   glBindTexture(GL_TEXTURE_1D, _simplex_gradient_lut);
@@ -301,19 +301,45 @@ void Renderer::stencil(const Mesh& mesh, uint32_t stencil_write) const
   glDepthRange(0, 1);
   glDisable(GL_BLEND);
 
-  glUseProgram(_stencil_program);
+  glUseProgram(_world_program);
   glUniformMatrix4fv(
-      glGetUniformLocation(_stencil_program, "world_transform"),
+      glGetUniformLocation(_world_program, "world_transform"),
       1, GL_FALSE, glm::value_ptr(_world_transform));
   glUniformMatrix4fv(
-      glGetUniformLocation(_stencil_program, "vp_transform"),
+      glGetUniformLocation(_world_program, "vp_transform"),
       1, GL_FALSE, glm::value_ptr(_vp_transform));
 
-  glUniform3fv(
-      glGetUniformLocation(_draw_program, "light_source"), 1,
-      glm::value_ptr(_light.source));
-  glUniform1f(
-      glGetUniformLocation(_draw_program, "light_intensity"), _light.intensity);
+  glBindVertexArray(mesh.vao());
+  glDrawElements(GL_TRIANGLES, mesh.vertex_count(), GL_UNSIGNED_SHORT, 0);
+  glUseProgram(0);
+}
+
+void Renderer::depth(const Mesh& mesh, uint32_t stencil_target) const
+{
+  compute_transform();
+
+  glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
+  if (stencil_target) {
+    glEnable(GL_STENCIL_TEST);
+    glStencilOp(GL_KEEP, GL_KEEP, GL_KEEP);
+    glStencilMask(0x00);
+    glStencilFunc(GL_EQUAL, stencil_target, 0xff);
+  } else {
+    glDisable(GL_STENCIL_TEST);
+  }
+  glEnable(GL_DEPTH_TEST);
+  glDepthMask(GL_TRUE);
+  glDepthFunc(GL_LEQUAL);
+  glDepthRange(0, 1);
+  glDisable(GL_BLEND);
+
+  glUseProgram(_world_program);
+  glUniformMatrix4fv(
+      glGetUniformLocation(_world_program, "world_transform"),
+      1, GL_FALSE, glm::value_ptr(_world_transform));
+  glUniformMatrix4fv(
+      glGetUniformLocation(_world_program, "vp_transform"),
+      1, GL_FALSE, glm::value_ptr(_vp_transform));
 
   glBindVertexArray(mesh.vao());
   glDrawElements(GL_TRIANGLES, mesh.vertex_count(), GL_UNSIGNED_SHORT, 0);
