@@ -22,6 +22,34 @@ namespace {
     auto remote = orientation_matrix(portal.remote, true);
     return glm::inverse(local) * remote;
   }
+
+  bool mesh_visible(const glm::vec3& head, const glm::vec3& look,
+                    const glm::mat4& transform, const Mesh& mesh)
+  {
+    // Extremely simple visibility determination. We will probably need
+    // something more robust. The clip check should respect the view frustum at
+    // the very least.
+    bool clipped = true;
+    for (const auto& v : mesh.physical_vertices()) {
+      glm::vec3 vt{transform * glm::vec4{v, 1}};
+      if (glm::dot(look - head, vt - head) >= 0) {
+        clipped = false;
+        break;
+      }
+    }
+    bool backfacing = true;
+    for (const auto& t : mesh.physical_faces()) {
+      glm::vec3 a{transform * glm::vec4{t.a, 1}};
+      glm::vec3 b{transform * glm::vec4{t.b, 1}};
+      glm::vec3 c{transform * glm::vec4{t.c, 1}};
+      auto normal = glm::cross(b - a, c - a);
+      if (glm::dot(normal, head - a) >= 0) {
+        backfacing = false;
+        break;
+      }
+    }
+    return !clipped && !backfacing;
+  }
 }
 
 World::World(const std::string& path, Renderer& renderer)
@@ -111,7 +139,7 @@ void World::render() const
     return;
   }
 
-  static const uint32_t max_iterations = 4;
+  static const uint32_t max_iterations = 8;
   auto inv_orientation = glm::inverse(_orientation);
   auto head = _player.get_head_position();
   auto look = _player.get_look_position();
@@ -161,25 +189,9 @@ void World::render() const
 
     std::vector<std::pair<const Portal*, uint32_t>> portals_added;
     for (const auto& portal : entry.chunk->portals) {
-      if (last_iteration) {
-        continue;
-      }
       auto jt = _chunks.find(portal.chunk_name);
-      if (jt == _chunks.end()) {
-        continue;
-      }
-
-      // Extremely simple visibility determination. We will probably need
-      // something more robust.
-      bool visible = false;
-      for (const auto& v : portal.portal_mesh->physical_vertices()) {
-        glm::vec3 vt{entry.orientation * glm::vec4{v, 1}};
-        if (glm::dot(look - head, vt - head) >= 0) {
-          visible = true;
-          break;
-        }
-      }
-      if (!visible) {
+      if (last_iteration || jt == _chunks.end() ||
+          !mesh_visible(head, look, entry.orientation, *portal.portal_mesh)) {
         continue;
       }
 
@@ -230,7 +242,7 @@ void World::render() const
       }
     }
 
-    // Render objects in the target chunk.
+    // Render objects in the target chunk. Are these really both necessary?
     if (entry.chunk == &it->second) {
       auto translate = glm::translate(glm::mat4{}, _player.get_position());
       _renderer.world(entry.orientation * inv_orientation * translate);
