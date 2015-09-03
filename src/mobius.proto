@@ -57,22 +57,36 @@ message mesh {
 }
 
 message orientation {
+  // Relative origin point.
   vec3 origin = 1;
+  // Normal should point into the chunk.
   vec3 normal = 2;
+  // Relative up-vector.
   vec3 up = 3;
 }
 
 message portal {
+  // Name of the remote chunk that the portal leads to.
   string chunk_name = 1;
+
+  // The physical parts of this mesh cause chunk handover; the remote space is
+  // rendered onto the visible parts.
   mesh portal_mesh = 2;
 
+  // Local and remote relative orientations for rendering and handover. The
+  // chunk spaces identify the two origin points and orient each space relative
+  // to the normal. Note that everything in the remote space which lies in front
+  // of the local origin will be clipped when rendered onto the portal mesh.
   orientation local = 3;
   orientation remote = 4;
 }
 
 message chunk {
+  // Name referenced by portals.
   string name = 1;
+  // Static chunk geometry.
   mesh mesh = 2;
+  // List of portals.
   repeated portal portal = 3;
 }
 
