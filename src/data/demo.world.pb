@@ -84,6 +84,8 @@ chunk: {
 
   portal: {
     chunk_name: "entryway"
+    local_id: 1
+    remote_id: 2
     local: {
       origin: {x: 0, y: 2, z: -4}
       normal: {x: 0, y: 0, z: 1}
@@ -114,6 +116,8 @@ chunk: {
 
   portal: {
     chunk_name: "entryway"
+    local_id: 2
+    remote_id: 1
     local: {
       origin: {x: 0, y: 6, z: 0}
       normal: {x: 0, y: -1, z: 0}

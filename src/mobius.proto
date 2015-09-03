@@ -73,12 +73,18 @@ message portal {
   // rendered onto the visible parts.
   mesh portal_mesh = 2;
 
+  // Identifiers should match the opposite identifier on the remote chunk. This
+  // is used only to avoid re-rendering to the maximum limit when both portal
+  // meshes are visible.
+  uint32 local_id = 3;
+  uint32 remote_id = 4;
+
   // Local and remote relative orientations for rendering and handover. The
   // chunk spaces identify the two origin points and orient each space relative
   // to the normal. Note that everything in the remote space which lies in front
   // of the local origin will be clipped when rendered onto the portal mesh.
-  orientation local = 3;
-  orientation remote = 4;
+  orientation local = 5;
+  orientation remote = 6;
 }
 
 message chunk {
