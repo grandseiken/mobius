@@ -238,6 +238,6 @@ void World::render() const
           _player.get_mesh(), stencil_ref, strict_stencil_test_mask);
     }
   }
-  _renderer.grain(1. / 16);
+  _renderer.grain(1. / 32);
   _renderer.render();
 }

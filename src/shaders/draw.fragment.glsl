@@ -42,6 +42,7 @@ vec4 dFsimplex3(float scale, float dF, vec3 value)
 {
   // We assume the average over 2 units of noise is zero; this value could be
   // tweaked up or down.
+  // TODO: this really needs smoothed.
   return scale * dF > 2 ? vec4(0.) :
       simplex3_gradient(
           scale * value, simplex_gradient_lut,

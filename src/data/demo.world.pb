@@ -11,23 +11,23 @@ chunk: {
     vertex: {x: -1, y:  1, z:  1}
     vertex: {x:  1, y:  1, z:  1}
 
-    vertex: {x: -.5, y:  -1, z: -1}
-    vertex: {x:  .5, y:  -1, z: -1}
-    vertex: {x: -.5, y: -.5, z: -1}
-    vertex: {x:  .5, y: -.5, z: -1}
-    vertex: {x: -.5, y: 1, z: -.25}
-    vertex: {x:  .5, y: 1, z: -.25}
-    vertex: {x: -.5, y: 1, z:  .25}
-    vertex: {x:  .5, y: 1, z:  .25}
+    vertex: {x: -.5, y: -1, z: -1}
+    vertex: {x:  .5, y: -1, z: -1}
+    vertex: {x: -.5, y:  1, z: -1}
+    vertex: {x:  .5, y:  1, z: -1}
+    vertex: {x: -.5, y: 1, z: -1}
+    vertex: {x:  .5, y: 1, z: -1}
+    vertex: {x: -.5, y: 1, z:  1}
+    vertex: {x:  .5, y: 1, z:  1}
 
-    vertex: {x: -.5, y:  -1, z: -1.25}
-    vertex: {x:  .5, y:  -1, z: -1.25}
-    vertex: {x: -.5, y: -.5, z: -1.25}
-    vertex: {x:  .5, y: -.5, z: -1.25}
-    vertex: {x: -.5, y: 1.25, z: -.25}
-    vertex: {x:  .5, y: 1.25, z: -.25}
-    vertex: {x: -.5, y: 1.25, z:  .25}
-    vertex: {x:  .5, y: 1.25, z:  .25}
+    vertex: {x: -.5, y: -1, z: -1.25}
+    vertex: {x:  .5, y: -1, z: -1.25}
+    vertex: {x: -.5, y:  1, z: -1.25}
+    vertex: {x:  .5, y:  1, z: -1.25}
+    vertex: {x: -.5, y: 1.25, z: -1}
+    vertex: {x:  .5, y: 1.25, z: -1}
+    vertex: {x: -.5, y: 1.25, z:  1}
+    vertex: {x:  .5, y: 1.25, z:  1}
 
     geometry: {
       quad: {a: 0, b: 2, c: 3, d: 1}
@@ -85,7 +85,7 @@ chunk: {
   portal: {
     chunk_name: "entryway"
     local: {
-      origin: {x: 0, y: -1, z: -4}
+      origin: {x: 0, y: 2, z: -4}
       normal: {x: 0, y: 0, z: 1}
       up: {x: 0, y: 1, z: 0}
     }
@@ -95,10 +95,10 @@ chunk: {
       up: {x: 0, y: 0, z: -1}
     }
     portal_mesh: {
-      vertex: {x: -2, y: -1, z: 0}
-      vertex: {x:  2, y: -1, z: 0}
-      vertex: {x: -2, y:  1, z: 0}
-      vertex: {x:  2, y:  1, z: 0}
+      vertex: {x: -2, y: -4, z: 0}
+      vertex: {x:  2, y: -4, z: 0}
+      vertex: {x: -2, y:  4, z: 0}
+      vertex: {x:  2, y:  4, z: 0}
 
       geometry: {
         quad: {a: 0, b: 1, c: 3, d: 2}
@@ -107,7 +107,7 @@ chunk: {
       submesh: {
         flags: 3
         geometry: 0
-        translate: {x: 0, y: -1, z: -5}
+        translate: {x: 0, y: 2, z: -5}
       }
     }
   }
@@ -120,15 +120,15 @@ chunk: {
       up: {x: 0, y: 0, z: -1}
     }
     remote: {
-      origin: {x: 0, y: -1, z: -5}
+      origin: {x: 0, y: 2, z: -5}
       normal: {x: 0, y: 0, z: 1}
       up: {x: 0, y: 1, z: 0}
     }
     portal_mesh: {
-      vertex: {x: -2, y: 0, z: -1}
-      vertex: {x:  2, y: 0, z: -1}
-      vertex: {x: -2, y: 0, z:  1}
-      vertex: {x:  2, y: 0, z:  1}
+      vertex: {x: -2, y: 0, z: -4}
+      vertex: {x:  2, y: 0, z: -4}
+      vertex: {x: -2, y: 0, z:  4}
+      vertex: {x:  2, y: 0, z:  4}
 
       geometry: {
         quad: {a: 0, b: 1, c: 3, d: 2}
