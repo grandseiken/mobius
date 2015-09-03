@@ -10,6 +10,9 @@ uniform mat3 normal_transform;
 uniform mat4 world_transform;
 uniform mat4 vp_transform;
 
+uniform vec3 clip_point;
+uniform vec3 clip_normal;
+
 void main()
 {
   vec3 world_normal = normal_transform * normal;
@@ -20,4 +23,7 @@ void main()
   vertex_world = world.xyz;
   vertex_normal = normalize(world_normal);
   vertex_colour = colour;
+
+  // Custom clipping plane.
+  gl_ClipDistance[0] = dot(clip_normal, world.xyz - clip_point);
 }

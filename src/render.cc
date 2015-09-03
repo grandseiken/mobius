@@ -252,7 +252,7 @@ void Renderer::resize(const glm::ivec2& dimensions)
     glTexImage2D(
         target, 0, GL_RGBA8,
         _dimensions.x, _dimensions.y, 0,
-        GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+        GL_RGBA, GL_UNSIGNED_INT_8_8_8_8_REV, nullptr);
     glBindTexture(target, _fbd);
     glTexImage2D(
         target, 0, GL_DEPTH24_STENCIL8,
@@ -287,8 +287,16 @@ void Renderer::camera(const glm::vec3& eye, const glm::vec3& target,
 
 void Renderer::world(const glm::mat4& world_transform)
 {
+  world(world_transform, {}, {});
+}
+
+void Renderer::world(const glm::mat4& world_transform,
+                     const glm::vec3& clip_point, const glm::vec3& clip_normal)
+{
   _world_transform = world_transform;
   _normal_transform_dirty = true;
+  _clip_point = clip_point;
+  _clip_normal = clip_normal;
 }
 
 void Renderer::light(const glm::vec3& source, float intensity)
@@ -432,6 +440,18 @@ void Renderer::set_mvp_uniforms(uint32_t program) const
   glUniformMatrix4fv(
       glGetUniformLocation(program, "vp_transform"),
       1, GL_FALSE, glm::value_ptr(_vp_transform));
+
+  if (_clip_normal != glm::vec3{}) {
+    glEnable(GL_CLIP_DISTANCE0);
+    glUniform3fv(
+        glGetUniformLocation(program, "clip_point"),
+        1, glm::value_ptr(_clip_point));
+    glUniform3fv(
+        glGetUniformLocation(program, "clip_normal"),
+        1, glm::value_ptr(_clip_normal));
+  } else {
+    glDisable(GL_CLIP_DISTANCE0);
+  }
 }
 
 void Renderer::set_simplex_uniforms(uint32_t program) const

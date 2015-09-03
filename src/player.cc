@@ -34,6 +34,7 @@ void Player::update(const ControlData& controls,
 
   if (velocity != glm::vec3{0, 0, 0}) {
     velocity = (1.f / 32) * glm::normalize(velocity);
+    // TODO: sometimes the player gets stuck sliding along the wall. Why?
     _position += _collision.translation(
         {&_mesh, glm::translate(glm::mat4{}, _position)},
         environment, velocity, 8 /* iterations */);

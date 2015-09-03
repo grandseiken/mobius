@@ -115,9 +115,9 @@ void World::render() const
     return;
   }
 
-  // Establish the depth and stencil buffers.
   _renderer.world(_orientation);
   _renderer.depth(*it->second.mesh, 0);
+  _renderer.draw(*it->second.mesh, 0);
 
   uint32_t stencil = 0;
   for (const auto& portal : it->second.portals) {
@@ -127,32 +127,20 @@ void World::render() const
     }
     ++stencil;
 
-    // Why is drawing to the stencil buffer so slow? Anyway, it isn't yet a
-    // total solution, as geometry in an overlapping space that happens to pass
-    // in front of the stencil will still be drawn.
+    // TODO: something is very slow when there are large stencils covering most
+    // of the screen (it seems).
     _renderer.world(_orientation);
     _renderer.stencil(*portal.portal_mesh, stencil);
 
+    // We have to clip behind the portal so that we don't see overlapping
+    // geometry hanging about.
+    glm::vec3 clip_point{_orientation * glm::vec4{portal.local.origin, 1.f}};
+    glm::vec3 clip_normal{_orientation * glm::vec4{-portal.local.normal, 1.f}};
     auto matrix = portal_matrix(portal);
-    _renderer.world(matrix * _orientation);
+    _renderer.world(matrix * _orientation, clip_point, clip_normal);
     _renderer.depth(*jt->second.mesh, stencil);
-  }
-
-  _renderer.world(_orientation);
-  _renderer.draw(*it->second.mesh, 0);
-
-  // Render the world.
-  stencil = 0;
-  for (const auto& portal : it->second.portals) {
-    auto jt = _chunks.find(portal.chunk_name);
-    if (jt == _chunks.end()) {
-      continue;
-    }
-    ++stencil;
-
-    auto matrix = portal_matrix(portal);
-    _renderer.world(matrix * _orientation);
     _renderer.draw(*jt->second.mesh, stencil);
+
     if (jt->first == _active_chunk) {
       auto translate = glm::translate(glm::mat4{}, _player.get_position());
       _renderer.world(matrix * translate);

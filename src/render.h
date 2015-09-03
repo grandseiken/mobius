@@ -20,6 +20,8 @@ public:
   void camera(const glm::vec3& eye, const glm::vec3& target,
               const glm::vec3& up);
   void world(const glm::mat4& world_transform);
+  void world(const glm::mat4& world_transform,
+             const glm::vec3& clip_point, const glm::vec3& clip_normal);
   void light(const glm::vec3& source, float intensity);
 
   void clear() const;
@@ -71,6 +73,10 @@ private:
 
   // For world (model space to world space) transform.
   glm::mat4 _world_transform;
+
+  // For custom clipping.
+  glm::vec3 _clip_point;
+  glm::vec3 _clip_normal;
 
   mutable glm::mat4 _vp_transform;
   mutable glm::mat3 _normal_transform;
