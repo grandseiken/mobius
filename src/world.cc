@@ -232,7 +232,10 @@ void World::render() const
     auto strict_stencil_test_mask = combine_mask(entry.iteration, 0xf, 0x0);
     // Render objects in the source chunk.
     for (const auto& pair : portals_added) {
-      if (pair.first->chunk_name == _active_chunk) {
+      // TODO: we need > 1 here only because the visibility doesn't take into
+      // account sitting in-between two portals and rendering them both over and
+      // over, which is probably what's causing the FPS drop too.
+      if (entry.iteration > 1 && pair.first->chunk_name == _active_chunk) {
         auto transform =
             portal_matrix(*pair.first) * entry.orientation * inv_orientation *
             glm::translate(glm::mat4{}, _player.get_position());
@@ -243,7 +246,7 @@ void World::render() const
     }
 
     // Render objects in the target chunk. Are these really both necessary?
-    if (entry.chunk == &it->second) {
+    if (entry.iteration && entry.chunk == &it->second) {
       auto translate = glm::translate(glm::mat4{}, _player.get_position());
       _renderer.world(entry.orientation * inv_orientation * translate);
       _renderer.draw(

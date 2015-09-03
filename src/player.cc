@@ -57,7 +57,7 @@ glm::vec3 Player::get_position() const
 
 glm::vec3 Player::get_head_position() const
 {
-  return _position + glm::vec3{0, 0, 0};
+  return _position;
 }
 
 glm::vec3 Player::get_look_position() const
