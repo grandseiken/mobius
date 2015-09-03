@@ -144,7 +144,13 @@ void World::render() const
     // TODO: something is very slow when there are large stencils covering most
     // of the screen (it seems).
     _renderer.world(_orientation);
+    // To avoid awkwardly-placed portals being seen through other stencils and
+    // messing up the buffer, we have to render first with depth-writing enabled
+    // and then manually clear the depth. (A possibly-faster approach would be
+    // to divide up the depth buffer and use different ranges for each level of
+    // the portal tree.)
     _renderer.stencil(*portal.portal_mesh, stencil);
+    _renderer.depth_clear(*portal.portal_mesh, stencil);
 
     // We have to clip behind the portal so that we don't see overlapping
     // geometry hanging about.

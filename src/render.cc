@@ -328,7 +328,7 @@ void Renderer::clear() const
 void Renderer::stencil(const Mesh& mesh, uint32_t stencil_write) const
 {
   compute_transform();
-  render_settings(/* dtest */ true, /* dmask */ false,
+  render_settings(/* dtest */ true, /* dmask */ true,
                   /* cmask */ false, /* blend */ false);
   stencil_settings(/* enable_test */ false, /* ref */ stencil_write,
                    /* test_mask */ 0xff, /* write_mask */ 0xff);
@@ -346,8 +346,25 @@ void Renderer::depth(const Mesh& mesh, uint32_t stencil_target) const
   compute_transform();
   render_settings(/* dtest */ true, /* dmask */ true,
                   /* cmask */ false, /* blend */ false);
-  stencil_settings(/* enable_test */ true, /* ref */ stencil_target,
+  stencil_settings(/* enable_test */ stencil_target, /* ref */ stencil_target,
                    /* test_mask */ 0xff, /* write_mask */ 0x00);
+
+  glUseProgram(_world_program);
+  set_mvp_uniforms(_world_program);
+
+  glBindVertexArray(mesh.vao());
+  glDrawElements(GL_TRIANGLES, mesh.vertex_count(), GL_UNSIGNED_SHORT, 0);
+  glUseProgram(0);
+}
+
+void Renderer::depth_clear(const Mesh& mesh, uint32_t stencil_target) const
+{
+  compute_transform();
+  render_settings(/* dtest */ false, /* dmask */ true,
+                  /* cmask */ false, /* blend */ false);
+  stencil_settings(/* enable_test */ stencil_target, /* ref */ stencil_target,
+                   /* test_mask */ 0xff, /* write_mask */ 0x00);
+  glDepthRange(1, 1);
 
   glUseProgram(_world_program);
   set_mvp_uniforms(_world_program);

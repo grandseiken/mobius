@@ -27,6 +27,7 @@ public:
   void clear() const;
   void stencil(const Mesh& mesh, uint32_t stencil_write) const;
   void depth(const Mesh& mesh, uint32_t stencil_target) const;
+  void depth_clear(const Mesh& mesh, uint32_t stencil_target) const;
   void draw(const Mesh& mesh, uint32_t stencil_target) const;
   void grain(float amount) const;
   void render() const;
