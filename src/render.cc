@@ -120,7 +120,6 @@ namespace {
 #include "../gen/shaders/quad.vertex.glsl.h"
 #include "../gen/shaders/grain.fragment.glsl.h"
 #include "../gen/shaders/world.vertex.glsl.h"
-#include "../gen/shaders/world.fragment.glsl.h"
 #include "../gen/tools/simplex_lut.h"
 
 static const float quad_vertices[] = {
@@ -159,9 +158,8 @@ Renderer::Renderer()
   _grain_program = create_program("grain", {
       SHADER(quad_vertex, GL_VERTEX_SHADER),
       SHADER(grain_fragment, GL_FRAGMENT_SHADER)});
-  _world_program = create_program("stencil", {
-      SHADER(world_vertex, GL_VERTEX_SHADER),
-      SHADER(world_fragment, GL_FRAGMENT_SHADER)});
+  _world_program = create_program("world", {
+      SHADER(world_vertex, GL_VERTEX_SHADER)});
 
   glGenTextures(1, &_simplex_gradient_lut);
   glBindTexture(GL_TEXTURE_1D, _simplex_gradient_lut);
