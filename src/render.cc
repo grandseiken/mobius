@@ -90,14 +90,12 @@ namespace {
     }
   }
 
-  void stencil_settings(
-      bool enable_test, uint32_t ref, uint32_t test_mask, uint32_t write_mask) {
-    if (enable_test || write_mask) {
+  void stencil_settings(uint32_t ref, uint32_t test_mask, uint32_t write_mask) {
+    if (test_mask || write_mask) {
       glEnable(GL_STENCIL_TEST);
+      glStencilFunc(test_mask ? GL_EQUAL : GL_ALWAYS, ref, test_mask);
       glStencilOp(GL_KEEP, GL_KEEP, write_mask ? GL_REPLACE : GL_KEEP);
       glStencilMask(write_mask);
-      glStencilFunc(
-          enable_test && test_mask ? GL_EQUAL : GL_ALWAYS, ref, test_mask);
     } else {
       glDisable(GL_STENCIL_TEST);
     }
@@ -314,8 +312,6 @@ void Renderer::clear() const
 
   glBindFramebuffer(GL_DRAW_FRAMEBUFFER, _fbo);
   glEnable(GL_MULTISAMPLE);
-  glEnable(GL_DEPTH_TEST);
-  glEnable(GL_STENCIL_TEST);
   glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
   glDepthMask(GL_TRUE);
   glStencilMask(0xff);
@@ -325,13 +321,20 @@ void Renderer::clear() const
   glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
 }
 
-void Renderer::stencil(const Mesh& mesh, uint32_t stencil_write) const
+void Renderer::clear_stencil(uint32_t stencil_mask) const
+{
+  glStencilMask(stencil_mask);
+  glClearStencil(0x00);
+  glClear(GL_STENCIL_BUFFER_BIT);
+}
+
+void Renderer::stencil(const Mesh& mesh, uint32_t stencil_ref,
+                       uint32_t test_mask, uint32_t write_mask) const
 {
   compute_transform();
   render_settings(/* dtest */ true, /* dmask */ true,
                   /* cmask */ false, /* blend */ false);
-  stencil_settings(/* enable_test */ false, /* ref */ stencil_write,
-                   /* test_mask */ 0xff, /* write_mask */ 0xff);
+  stencil_settings(stencil_ref, test_mask, write_mask);
 
   glUseProgram(_world_program);
   set_mvp_uniforms(_world_program);
@@ -341,13 +344,13 @@ void Renderer::stencil(const Mesh& mesh, uint32_t stencil_write) const
   glUseProgram(0);
 }
 
-void Renderer::depth(const Mesh& mesh, uint32_t stencil_target) const
+void Renderer::depth(const Mesh& mesh, uint32_t stencil_ref,
+                                       uint32_t stencil_mask) const
 {
   compute_transform();
   render_settings(/* dtest */ true, /* dmask */ true,
                   /* cmask */ false, /* blend */ false);
-  stencil_settings(/* enable_test */ stencil_target, /* ref */ stencil_target,
-                   /* test_mask */ 0xff, /* write_mask */ 0x00);
+  stencil_settings(stencil_ref, stencil_mask, 0x00);
 
   glUseProgram(_world_program);
   set_mvp_uniforms(_world_program);
@@ -357,13 +360,13 @@ void Renderer::depth(const Mesh& mesh, uint32_t stencil_target) const
   glUseProgram(0);
 }
 
-void Renderer::depth_clear(const Mesh& mesh, uint32_t stencil_target) const
+void Renderer::depth_clear(const Mesh& mesh, uint32_t stencil_ref,
+                                             uint32_t stencil_mask) const
 {
   compute_transform();
   render_settings(/* dtest */ false, /* dmask */ true,
                   /* cmask */ false, /* blend */ false);
-  stencil_settings(/* enable_test */ stencil_target, /* ref */ stencil_target,
-                   /* test_mask */ 0xff, /* write_mask */ 0x00);
+  stencil_settings(stencil_ref, stencil_mask, 0x00);
   glDepthRange(1, 1);
 
   glUseProgram(_world_program);
@@ -374,13 +377,13 @@ void Renderer::depth_clear(const Mesh& mesh, uint32_t stencil_target) const
   glUseProgram(0);
 }
 
-void Renderer::draw(const Mesh& mesh, uint32_t stencil_target) const
+void Renderer::draw(const Mesh& mesh, uint32_t stencil_ref,
+                                      uint32_t stencil_mask) const
 {
   compute_transform();
   render_settings(/* dtest */ true, /* dmask */ true,
                   /* cmask */ true, /* blend */ false);
-  stencil_settings(/* enable_test */ stencil_target, /* ref */ stencil_target,
-                   /* test_mask */ 0xff, /* write_mask */ 0x00);
+  stencil_settings(stencil_ref, stencil_mask, 0x00);
 
   glUseProgram(_draw_program);
   set_simplex_uniforms(_draw_program);
@@ -404,8 +407,7 @@ void Renderer::grain(float amount) const
 {
   render_settings(/* dtest */ false, /* dmask */ false,
                   /* cmask */ true, /* blend */ true);
-  stencil_settings(/* enable_test */ false, /* ref */ 0x00,
-                   /* test_mask */ 0xff, /* write_mask */ 0x00);
+  stencil_settings(0x00, 0x00, 0x00);
 
   glUseProgram(_grain_program);
   glUniform1f(glGetUniformLocation(_grain_program, "amount"), amount);

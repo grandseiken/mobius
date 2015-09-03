@@ -5,6 +5,7 @@
 #include <glm/vec4.hpp>
 #include <glm/mat4x4.hpp>
 #include <glm/gtc/matrix_transform.hpp>
+#include <deque>
 
 namespace {
   glm::mat4 orientation_matrix(const Orientation& orientation, bool direction)
@@ -110,65 +111,133 @@ void World::render() const
     return;
   }
 
-  _renderer.clear();
+  static const uint32_t max_iterations = 4;
+  auto inv_orientation = glm::inverse(_orientation);
   auto head = _player.get_head_position();
   auto look = _player.get_look_position();
   _renderer.camera(head, look, {0, 1, 0});
   _renderer.light(head, 1.f);
+  _renderer.clear();
 
-  _renderer.world(_orientation);
-  _renderer.depth(*it->second.mesh, 0);
-  _renderer.draw(*it->second.mesh, 0);
+  struct chunk_entry {
+    const Chunk* chunk;
+    glm::mat4 orientation;
+    glm::vec3 clip_point;
+    glm::vec3 clip_normal;
+    uint32_t iteration;
+    uint32_t stencil;
+  };
+  std::deque<chunk_entry> queue;
+  std::vector<uint32_t> iteration_stencil;
+  auto combine_mask = [&](uint32_t iteration,
+                          uint32_t test_mask, uint32_t write_mask)
+  {
+    return iteration % 2 ?
+        (test_mask & 0x0f) | (write_mask & 0x0f) << 4 :
+        (write_mask & 0x0f) | (test_mask & 0x0f) << 4;
+  };
 
-  uint32_t stencil = 0;
-  for (const auto& portal : it->second.portals) {
-    auto jt = _chunks.find(portal.chunk_name);
-    if (jt == _chunks.end()) {
-      continue;
-    }
+  queue.push_back(chunk_entry{&it->second, _orientation, {}, {}, 0, 0});
+  while (!queue.empty()) {
+    auto entry = queue.front();
+    queue.pop_front();
 
-    // Extremely simple visibility determination.
-    bool visible = false;
-    for (const auto& v : portal.portal_mesh->physical_vertices()) {
-      glm::vec3 vt{_orientation * glm::vec4{v, 1}};
-      if (glm::dot(look - head, vt - head) >= 0) {
-        visible = true;
-        break;
+    uint32_t stencil_test_mask = !entry.iteration ? 0x00 :
+        combine_mask(entry.iteration, 0xf, 0x0);
+    uint32_t stencil_write_mask = combine_mask(entry.iteration, 0x0, 0xf);
+    uint32_t stencil_ref = combine_mask(entry.iteration, entry.stencil, 0x0);
+
+    _renderer.world(entry.orientation, entry.clip_point, entry.clip_normal);
+    _renderer.depth(*entry.chunk->mesh, stencil_ref, stencil_test_mask);
+    _renderer.draw(*entry.chunk->mesh, stencil_ref, stencil_test_mask);
+
+    bool last_iteration = entry.iteration + 1 >= max_iterations;
+    if (entry.iteration >= iteration_stencil.size()) {
+      iteration_stencil.push_back(0);
+      if (entry.iteration >= 2 && !last_iteration) {
+        _renderer.clear_stencil(stencil_write_mask);
       }
     }
-    if (!visible) {
-      continue;
+
+    std::vector<std::pair<const Portal*, uint32_t>> portals_added;
+    for (const auto& portal : entry.chunk->portals) {
+      if (last_iteration) {
+        continue;
+      }
+      auto jt = _chunks.find(portal.chunk_name);
+      if (jt == _chunks.end()) {
+        continue;
+      }
+
+      // Extremely simple visibility determination. We will probably need
+      // something more robust.
+      bool visible = false;
+      for (const auto& v : portal.portal_mesh->physical_vertices()) {
+        glm::vec3 vt{entry.orientation * glm::vec4{v, 1}};
+        if (glm::dot(look - head, vt - head) >= 0) {
+          visible = true;
+          break;
+        }
+      }
+      if (!visible) {
+        continue;
+      }
+
+      // TODO: something is very slow when there are large stencils covering
+      // most of the screen (it seems).
+      // To avoid awkwardly-placed portals being seen through other stencils and
+      // messing up the buffer, we have to render first with depth-writing
+      // enabled and then manually clear the depth. (A possibly-faster approach
+      // might be to divide up the depth buffer according to max_iterations and
+      // use different ranges for each level of the portal tree. This might also
+      // avoid having to clear the stencil buffer?)
+      auto stencil = ++iteration_stencil[entry.iteration];
+      auto stencil_ref = combine_mask(entry.iteration, entry.stencil, stencil);
+      _renderer.stencil(*portal.portal_mesh, stencil_ref,
+                        stencil_test_mask, stencil_write_mask);
+      portals_added.push_back(std::make_pair(&portal, stencil));
+
+      // We have to clip behind the portal so that we don't see overlapping
+      // geometry hanging about.
+      auto normal_orientation =
+          glm::transpose(glm::inverse(glm::mat3{entry.orientation}));
+      glm::vec3 clip_point{entry.orientation * glm::vec4{portal.local.origin, 1}};
+      auto clip_normal = -normal_orientation * portal.local.normal;
+      auto orientation = portal_matrix(portal) * entry.orientation;
+
+      queue.push_back(chunk_entry{
+          &jt->second, orientation, clip_point, clip_normal,
+          entry.iteration + 1, stencil});
     }
-    ++stencil;
+    // Clear the portal depth.
+    for (const auto& pair: portals_added) {
+      auto next_stencil_ref = combine_mask(entry.iteration + 1, pair.second, 0x0);
+      auto next_stencil_test_mask = combine_mask(entry.iteration + 1, 0xf, 0x0);
+      _renderer.depth_clear(*pair.first->portal_mesh,
+                            next_stencil_ref, next_stencil_test_mask);
+    }
 
-    // TODO: something is very slow when there are large stencils covering most
-    // of the screen (it seems).
-    _renderer.world(_orientation);
-    // To avoid awkwardly-placed portals being seen through other stencils and
-    // messing up the buffer, we have to render first with depth-writing enabled
-    // and then manually clear the depth. (A possibly-faster approach would be
-    // to divide up the depth buffer and use different ranges for each level of
-    // the portal tree.)
-    _renderer.stencil(*portal.portal_mesh, stencil);
-    _renderer.depth_clear(*portal.portal_mesh, stencil);
+    auto strict_stencil_test_mask = combine_mask(entry.iteration, 0xf, 0x0);
+    // Render objects in the source chunk.
+    for (const auto& pair : portals_added) {
+      if (pair.first->chunk_name == _active_chunk) {
+        auto transform =
+            portal_matrix(*pair.first) * entry.orientation * inv_orientation *
+            glm::translate(glm::mat4{}, _player.get_position());
+        _renderer.world(transform);
+        _renderer.draw(
+            _player.get_mesh(), stencil_ref, strict_stencil_test_mask);
+      }
+    }
 
-    // We have to clip behind the portal so that we don't see overlapping
-    // geometry hanging about.
-    auto normal_orientation =
-        glm::transpose(glm::inverse(glm::mat3{_orientation}));
-    glm::vec3 clip_point{_orientation * glm::vec4{portal.local.origin, 1}};
-    auto clip_normal = -normal_orientation * portal.local.normal;
-    auto matrix = portal_matrix(portal);
-    _renderer.world(matrix * _orientation, clip_point, clip_normal);
-    _renderer.depth(*jt->second.mesh, stencil);
-    _renderer.draw(*jt->second.mesh, stencil);
-
-    if (jt->first == _active_chunk) {
+    // Render objects in the target chunk.
+    if (entry.chunk == &it->second) {
       auto translate = glm::translate(glm::mat4{}, _player.get_position());
-      _renderer.world(matrix * translate);
-      _renderer.draw(_player.get_mesh(), stencil);
+      _renderer.world(entry.orientation * inv_orientation * translate);
+      _renderer.draw(
+          _player.get_mesh(), stencil_ref, strict_stencil_test_mask);
     }
   }
-  _renderer.grain(1. / 32);
+  _renderer.grain(1. / 16);
   _renderer.render();
 }
