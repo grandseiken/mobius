@@ -426,7 +426,6 @@ void Renderer::compute_transform() const
 
   if (_normal_transform_dirty) {
     _normal_transform_dirty = false;
-    // This does not seem to be right.
     _normal_transform =
         glm::transpose(glm::inverse(glm::mat3{_world_transform}));
   }

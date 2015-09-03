@@ -148,8 +148,10 @@ void World::render() const
 
     // We have to clip behind the portal so that we don't see overlapping
     // geometry hanging about.
+    auto normal_orientation =
+        glm::transpose(glm::inverse(glm::mat3{_orientation}));
     glm::vec3 clip_point{_orientation * glm::vec4{portal.local.origin, 1}};
-    glm::vec3 clip_normal{_orientation * glm::vec4{-portal.local.normal, 1}};
+    auto clip_normal = -normal_orientation * portal.local.normal;
     auto matrix = portal_matrix(portal);
     _renderer.world(matrix * _orientation, clip_point, clip_normal);
     _renderer.depth(*jt->second.mesh, stencil);
