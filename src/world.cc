@@ -101,19 +101,20 @@ void World::update(const ControlData& controls)
     _orientation = portal_matrix(portal) * _orientation;
     break;
   }
-
-  _renderer.camera(
-    _player.get_head_position(), _player.get_look_position(), {0, 1, 0});
-  _renderer.light(_player.get_head_position(), 1.f);
 }
 
 void World::render() const
 {
-  _renderer.clear();
   auto it = _chunks.find(_active_chunk);
   if (it == _chunks.end()) {
     return;
   }
+
+  _renderer.clear();
+  auto head = _player.get_head_position();
+  auto look = _player.get_look_position();
+  _renderer.camera(head, look, {0, 1, 0});
+  _renderer.light(head, 1.f);
 
   _renderer.world(_orientation);
   _renderer.depth(*it->second.mesh, 0);
@@ -125,6 +126,19 @@ void World::render() const
     if (jt == _chunks.end()) {
       continue;
     }
+
+    // Extremely simple visibility determination.
+    bool visible = false;
+    for (const auto& v : portal.portal_mesh->physical_vertices()) {
+      glm::vec3 vt{_orientation * glm::vec4{v, 1}};
+      if (glm::dot(look - head, vt - head) >= 0) {
+        visible = true;
+        break;
+      }
+    }
+    if (!visible) {
+      continue;
+    }
     ++stencil;
 
     // TODO: something is very slow when there are large stencils covering most
@@ -134,8 +148,8 @@ void World::render() const
 
     // We have to clip behind the portal so that we don't see overlapping
     // geometry hanging about.
-    glm::vec3 clip_point{_orientation * glm::vec4{portal.local.origin, 1.f}};
-    glm::vec3 clip_normal{_orientation * glm::vec4{-portal.local.normal, 1.f}};
+    glm::vec3 clip_point{_orientation * glm::vec4{portal.local.origin, 1}};
+    glm::vec3 clip_normal{_orientation * glm::vec4{-portal.local.normal, 1}};
     auto matrix = portal_matrix(portal);
     _renderer.world(matrix * _orientation, clip_point, clip_normal);
     _renderer.depth(*jt->second.mesh, stencil);
