@@ -144,7 +144,7 @@ void World::render() const
   auto head = _player.get_head_position();
   auto look = _player.get_look_position();
   _renderer.camera(head, look, {0, 1, 0});
-  _renderer.light(head, 1.f);
+  _renderer.light(head, 2.f);
   _renderer.clear();
 
   struct chunk_entry {

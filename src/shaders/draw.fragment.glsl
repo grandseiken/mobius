@@ -86,11 +86,13 @@ void main()
   float cos_angle = (dot(light_normal, surface_normal) +
                      dot(light_normal, vertex_normal)) / 2.;
   float intensity = (light_intensity * cos_angle) / (1. + light_distance_sq);
-  intensity = clamp(intensity, 0., 1.);
+  // Extremely simple HDR (tone-mapping). Works because we only do one render
+  // pass; multiple passes would require either special HDR framebuffers or
+  // dynamic aperture based on reading the brightness from the last frame.
+  vec3 lit_colour =
+      intensity * (texture.a + 1.) / 2. * gamma_decorrect(vertex_colour);
 
-  // Still don't think this gamma correction is quite right.
-  vec3 lit_colour = gamma_correct(
-      intensity * (texture.a + 1.) / 2. * gamma_decorrect(vertex_colour));
-  output_colour = vec4(lit_colour, 1.);
+  // Still can't be sure if this gamma correction is quite right.
+  output_colour = vec4(gamma_correct(reinhard_tonemap(lit_colour)), 1.);
 }
 
