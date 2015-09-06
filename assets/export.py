@@ -39,6 +39,13 @@ def read_quad(quad):
   v.d = quad[3]
   return v
 
+def make_mesh():
+  v = proto()
+  v.vertex = []
+  v.geometry = []
+  v.submesh = []
+  return v
+
 def export_submesh(mesh, obj, data):
   submesh = proto()
   geometry = proto()
@@ -49,7 +56,7 @@ def export_submesh(mesh, obj, data):
   mesh.submesh.append(submesh)
   mesh.geometry.append(geometry)
 
-  submesh.flags = PHYSICAL | VISIBLE
+  submesh.flags = obj.game.properties["flags"].value
   submesh.material = proto()
   submesh.material.colour = read_rgb([1, 1, 1])
 
@@ -70,13 +77,10 @@ def export_submesh(mesh, obj, data):
 def export_chunk(scene):
   chunk = proto()
   chunk.name = scene.name
-  chunk.mesh = proto()
-  chunk.mesh.vertex = []
-  chunk.mesh.geometry = []
-  chunk.mesh.submesh = []
+  chunk.mesh = make_mesh()
 
   for obj in scene.objects:
-    if obj.type == 'MESH':
+    if obj.type == 'MESH' and obj.game.properties["flags"].value != 0:
       export_submesh(chunk.mesh, obj, obj.data)
   return chunk
 
