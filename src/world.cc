@@ -54,7 +54,7 @@ namespace {
 
 World::World(const std::string& path, Renderer& renderer)
 : _renderer(renderer)
-, _player{_collision, {0, 3, 0}}
+, _player{_collision, {0, 1, 0}}
 {
   auto world = load_proto<mobius::proto::world>(path);
   for (const auto& chunk_proto : world.chunk()) {

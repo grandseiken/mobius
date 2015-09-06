@@ -17,28 +17,26 @@ def read_rgb(rgb):
   return v
 
 def read_vec3(vec3):
-  # Blender Y and Z axes are swapped compared to Mobius.
+  # Blender axes are swapped compared to Mobius.
   v = proto()
-  v.x = vec3[0]
+  v.x = vec3[1]
   v.y = vec3[2]
-  v.z = vec3[1]
+  v.z = vec3[0]
   return v
 
 def read_tri(tri):
-  # Blender winding direction is the opposite of Mobius.
   v = proto()
-  v.a = tri[2]
+  v.a = tri[0]
   v.b = tri[1]
-  v.c = tri[0]
+  v.c = tri[2]
   return v
 
 def read_quad(quad):
-  # Blender winding direction is the opposite of Mobius.
   v = proto()
-  v.a = quad[3]
-  v.b = quad[2]
-  v.c = quad[1]
-  v.d = quad[0]
+  v.a = quad[0]
+  v.b = quad[1]
+  v.c = quad[2]
+  v.d = quad[3]
   return v
 
 def export_submesh(mesh, obj, data):
