@@ -5,10 +5,12 @@ include dependencies/Makefile
 # Directories.
 OUTDIR_BIN=$(OUTDIR)
 SRCDIR=./src
+ASSETS=./assets
 BINARIES=$(OUTDIR_BIN)/mobius
 
 # Compilers and interpreters.
 export PROTOC=$(PROTOBUF_DIR)/src/protoc
+BLENDER_PATH=~/blender/blender
 
 CFLAGS_EXTRA=\
   -std=c++11 \
@@ -32,11 +34,14 @@ PROTO_FILES=$(wildcard $(SRCDIR)/*.proto)
 PROTO_TEXT_FILES=$(wildcard $(SRCDIR)/data/*.pb)
 SHADER_FILES=$(wildcard $(SRCDIR)/shaders/*.glsl)
 SHADER_H_FILES=$(wildcard $(SRCDIR)/shaders/*.glsl.h)
+BLEND_FILES=$(wildcard $(ASSETS)/*.world.blend)
 CC_TOOL_BINARIES=$(subst $(SRCDIR)/,$(GENDIR)/,$(CC_TOOL_FILES:.cc=))
 CC_TOOL_OUTPUTS=$(subst $(SRCDIR)/,$(GENDIR)/,$(CC_TOOL_FILES:.cc=.h))
 PROTO_OUTPUTS=$(subst $(SRCDIR)/,$(GENDIR)/,$(PROTO_FILES:.proto=.pb.cc))
 SHADER_OUTPUTS=$(subst $(SRCDIR)/,$(GENDIR)/,$(SHADER_FILES:.glsl=.glsl.h))
-PROTO_DATA_FILES=$(subst $(SRCDIR)/,$(GENDIR)/,$(PROTO_TEXT_FILES))
+PROTO_DATA_FILES=\
+  $(subst $(SRCDIR)/,$(GENDIR)/,$(PROTO_TEXT_FILES)) \
+  $(subst $(ASSETS)/,$(GENDIR)/data/,$(BLEND_FILES:.blend=.pb))
 CC_GENERATED_FILES=$(PROTO_OUTPUTS)
 H_GENERATED_FILES=$(SHADER_OUTPUTS) $(CC_TOOL_OUTPUTS)
 
@@ -107,13 +112,29 @@ $(GENDIR)/%.pb.cc: \
 	@echo Compiling ./$<
 	$(PROTOC) --proto_path=$(SRCDIR) --cpp_out=$(GENDIR) ./$<
 
-# Proto data files.
+# Proto data files from data.
 $(GENDIR)/%.pb: \
   $(SRCDIR)/%.pb $(PROTO_FILES)
 	$(MKDIR)
 	@echo Processing ./$<
 	cat ./$< | $(PROTOC) --proto_path=$(SRCDIR) \
 	    --encode=mobius.proto$(suffix $(basename $<)) \
+	    $(PROTO_FILES) > $@ || (rm $@; false)
+
+# Blender files.
+$(GENDIR)/%.blend.pb: \
+  $(ASSETS)/%.blend $(ASSETS)/export.py
+	$(MKDIR)
+	@echo Exporting ./$<
+	EXPORT_PATH=$@ $(BLENDER_PATH) $< --background --python $(ASSETS)/export.py
+
+# Proto files from blender.
+$(GENDIR)/data/%.pb: \
+  $(GENDIR)/%.blend.pb $(PROTO_FILES)
+	$(MKDIR)
+	@echo Processing ./$<
+	cat ./$< | $(PROTOC) --proto_path=$(SRCDIR) \
+	    --encode=mobius.proto$(suffix $(basename $(basename $<))) \
 	    $(PROTO_FILES) > $@ || (rm $@; false)
 
 # Shader files.

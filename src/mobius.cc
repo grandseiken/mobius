@@ -25,7 +25,7 @@ void reset_mouse_position(const sf::Window& window)
 
 int main(int argc, char** argv)
 {
-  std::string world_path = "gen/data/demo.world.pb";
+  std::string world_path = "gen/data/test.world.pb";
   if (argc > 1) {
     world_path = argv[1];
   }
