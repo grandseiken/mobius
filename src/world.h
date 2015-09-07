@@ -18,10 +18,9 @@ struct Orientation {
 
 struct Portal {
   std::string chunk_name;
-  std::unique_ptr<Mesh> portal_mesh;
-  uint32_t local_id;
-  uint32_t remote_id;
+  uint32_t portal_id;
 
+  std::unique_ptr<Mesh> portal_mesh;
   Orientation local;
   Orientation remote;
 };

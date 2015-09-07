@@ -68,10 +68,8 @@ World::World(const std::string& path, Renderer& renderer)
       chunk.portals.emplace_back();
       auto& portal = *chunk.portals.rbegin();
       portal.chunk_name = portal_proto.chunk_name(),
+      portal.portal_id = portal_proto.portal_id();
       portal.portal_mesh.reset(new Mesh{portal_proto.portal_mesh()}),
-
-      portal.local_id = portal_proto.local_id();
-      portal.remote_id = portal_proto.remote_id();
 
       portal.local.origin = load_vec3(portal_proto.local().origin());
       portal.local.normal = load_vec3(portal_proto.local().normal()),
@@ -152,10 +150,10 @@ void World::render() const
 
   struct chunk_entry {
     const Chunk* chunk;
+    const Portal* source;
     glm::mat4 orientation;
     glm::vec3 clip_point;
     glm::vec3 clip_normal;
-    uint32_t source_id;
     uint32_t iteration;
     uint32_t stencil;
   };
@@ -169,7 +167,8 @@ void World::render() const
         (write_mask & 0x0f) | (test_mask & 0x0f) << 4;
   };
 
-  queue.push_back(chunk_entry{&it->second, _orientation, {}, {}, 0, 0, 0});
+  queue.push_back(
+      chunk_entry{&it->second, nullptr, _orientation, {}, {}, 0, 0});
   while (!queue.empty()) {
     auto entry = queue.front();
     queue.pop_front();
@@ -194,8 +193,10 @@ void World::render() const
     std::vector<std::pair<const Portal*, uint32_t>> portals_added;
     for (const auto& portal : entry.chunk->portals) {
       auto jt = _chunks.find(portal.chunk_name);
-      if (last_iteration || jt == _chunks.end() ||
-          (entry.iteration && portal.local_id == entry.source_id) ||
+      bool is_source = entry.source &&
+          portal.portal_id == entry.source->portal_id &&
+          &portal != entry.source;
+      if (last_iteration || jt == _chunks.end() || is_source ||
           !mesh_visible(head, look, entry.orientation, *portal.portal_mesh)) {
         continue;
       }
@@ -221,8 +222,8 @@ void World::render() const
       auto orientation = portal_matrix(portal) * entry.orientation;
 
       queue.push_back(chunk_entry{
-          &jt->second, orientation, clip_point, clip_normal,
-          portal.remote_id, entry.iteration + 1, stencil});
+          &jt->second, &portal, orientation, clip_point, clip_normal,
+          entry.iteration + 1, stencil});
     }
     // Clear the portal depth.
     for (const auto& pair: portals_added) {

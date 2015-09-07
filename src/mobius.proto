@@ -68,23 +68,21 @@ message orientation {
 message portal {
   // Name of the remote chunk that the portal leads to.
   string chunk_name = 1;
+  // Identifiers should match the portal identifier on the remote chunk. They
+  // are unique per chunk-pair. This is used only to avoid re-rendering to the
+  // maximum limit when both portal meshes are visible.
+  uint32 portal_id = 2;
 
   // The physical parts of this mesh cause chunk handover; the remote space is
   // rendered onto the visible parts.
-  mesh portal_mesh = 2;
-
-  // Identifiers should match the opposite identifier on the remote chunk. This
-  // is used only to avoid re-rendering to the maximum limit when both portal
-  // meshes are visible.
-  uint32 local_id = 3;
-  uint32 remote_id = 4;
+  mesh portal_mesh = 3;
 
   // Local and remote relative orientations for rendering and handover. The
   // chunk spaces identify the two origin points and orient each space relative
   // to the normal. Note that everything in the remote space which lies in front
   // of the local origin will be clipped when rendered onto the portal mesh.
-  orientation local = 5;
-  orientation remote = 6;
+  orientation local = 4;
+  orientation remote = 5;
 }
 
 message chunk {

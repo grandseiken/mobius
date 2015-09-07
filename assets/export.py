@@ -156,11 +156,8 @@ def export_portal(current_chunk_name, obj):
   export_submesh(portal.portal_mesh, obj, obj.data)
   portal.portal_mesh.submesh[0].flags = VISIBLE | PHYSICAL
 
-  # Could these be calculated by the script from something simpler?
-  if has_property(obj, "local_id"):
-    portal.local_id = get_int_property(obj, "local_id")
-  if has_property(obj, "remote_id"):
-    portal.remote_id = get_int_property(obj, "remote_id")
+  if has_property(obj, "portal_id"):
+    portal.portal_id = get_int_property(obj, "portal_id")
 
   # Look up the remote portal to calculate orientation. If we want to allow
   # unusual portals (i.e. with no corresponding remote portal) we might need to
@@ -169,10 +166,10 @@ def export_portal(current_chunk_name, obj):
   if portal.chunk_name in bpy.data.scenes:
     remote_scene = bpy.data.scenes[portal.chunk_name]
     for t in remote_scene.objects:
-      if (has_property(t, "portal_target") and
+      if (t != obj and has_property(t, "portal_target") and
           get_string_property(t, "portal_target") == current_chunk_name and
-          has_property(t, "remote_id") and
-          get_int_property(t, "remote_id") == portal.local_id):
+          has_property(t, "portal_id") and
+          get_int_property(t, "portal_id") == portal.portal_id):
         remote_obj = t
         break
 
