@@ -97,20 +97,24 @@ def export_submesh(mesh, obj, data):
     if len(face.vertices) == 4:
       geometry.quad.append(read_quad(face.vertices))
 
-def portal_normal(data):
+def mesh_average(data):
   v = read_vec3([0.0, 0.0, 0.0])
   for t in data.vertices:
     vt = read_vec3(t.co)
     v.x += vt.x
     v.y += vt.y
     v.z += vt.z
-  v.x = -v.x / len(data.vertices)
-  v.y = -v.y / len(data.vertices)
-  v.z = -v.z / len(data.vertices)
+  v.x = v.x / len(data.vertices)
+  v.y = v.y / len(data.vertices)
+  v.z = v.z / len(data.vertices)
+  return v
+
+def portal_normal(data):
+  v = mesh_average(data)
   length = math.sqrt(v.x * v.x + v.y * v.y + v.z * v.z)
-  v.x /= length
-  v.y /= length
-  v.z /= length
+  v.x = -v.x / length
+  v.y = -v.y / length
+  v.z = -v.z / length
   return v
 
 def portal_up(obj):
@@ -131,9 +135,15 @@ def portal_up(obj):
     return read_vec3([0, 0, -1])
   return read_vec3([0, 0, 1])
 
-def portal_orientation(obj):
+def portal_orientation(obj, remote):
   v = proto()
   v.origin = read_vec3(obj.location)
+  if remote:
+    avg = mesh_average(obj.data)
+    v.origin.x += avg.x
+    v.origin.y += avg.y
+    v.origin.z += avg.z
+
   v.normal = portal_normal(obj.data)
   v.up = portal_up(obj)
   return v
@@ -166,9 +176,9 @@ def export_portal(current_chunk_name, obj):
         remote_obj = t
         break
 
-  portal.local = portal_orientation(obj)
+  portal.local = portal_orientation(obj, False)
   if remote_obj:
-    portal.remote = portal_orientation(remote_obj)
+    portal.remote = portal_orientation(remote_obj, True)
   return portal
 
 def export_chunk(scene):
