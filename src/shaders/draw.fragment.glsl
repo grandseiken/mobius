@@ -13,7 +13,7 @@ uniform sampler1D simplex_gradient_lut;
 uniform sampler1D simplex_permutation_lut;
 uniform bool simplex_use_permutation_lut;
 
-const float mrot = 1. / 128;
+const float mrot = 1. / 256;
 const mat3 mrotm =
     mat3(1,         0,          0,
          0, cos(mrot), -sin(mrot),
@@ -55,19 +55,22 @@ void main()
   vec3 seed = mrotm * vertex_world;
   float dF = dFmax(seed);
   vec4 texture = vec4(0.);
-  texture += dFsimplex3(2., dF, seed);
-  texture += dFsimplex3(4., dF, seed);
-  texture += dFsimplex3(8., dF, seed);
-  texture += dFsimplex3(16., dF, seed);
-  texture += dFsimplex3(32., dF, seed);
-  texture += dFsimplex3(64., dF, seed);
-  texture += dFsimplex3(128., dF, seed);
-  texture += dFsimplex3(256., dF, seed);
-  texture += dFsimplex3(512., dF, seed);
-  texture += dFsimplex3(1024., dF, seed);
-  texture += dFsimplex3(2048., dF, seed);
-  texture += dFsimplex3(4096., dF, seed);
-  texture = texture / 16.;
+  const bool rocky = false;
+  if (rocky) {
+    texture += dFsimplex3(2., dF, seed);
+    texture += dFsimplex3(4., dF, seed);
+    texture += dFsimplex3(8., dF, seed);
+    texture += dFsimplex3(16., dF, seed);
+    texture += dFsimplex3(32., dF, seed);
+    texture += dFsimplex3(64., dF, seed);
+    texture += dFsimplex3(128., dF, seed);
+    texture += dFsimplex3(256., dF, seed);
+    texture += dFsimplex3(512., dF, seed);
+    texture += dFsimplex3(1024., dF, seed);
+    texture += dFsimplex3(2048., dF, seed);
+    texture += dFsimplex3(4096., dF, seed);
+    texture = texture / 16.;
+  }
 
   vec3 plane0 = normalize(get_perpendicular(vertex_normal));
   vec3 plane1 = cross(vertex_normal, plane0);

@@ -148,7 +148,7 @@ void World::render() const
   auto head = _player.get_head_position();
   auto look = _player.get_look_position();
   _renderer.camera(head, look, {0, 1, 0});
-  _renderer.light(head, 2.f);
+  _renderer.light(head, 128.f);
   _renderer.clear();
 
   struct chunk_entry {
@@ -181,10 +181,6 @@ void World::render() const
     uint32_t stencil_write_mask = combine_mask(entry.iteration, 0x0, 0xf);
     uint32_t stencil_ref = combine_mask(entry.iteration, entry.stencil, 0x0);
 
-    _renderer.world(entry.orientation, entry.clip_point, entry.clip_normal);
-    _renderer.depth(*entry.chunk->mesh, stencil_ref, stencil_test_mask);
-    _renderer.draw(*entry.chunk->mesh, stencil_ref, stencil_test_mask);
-
     bool last_iteration = entry.iteration + 1 >= max_iterations;
     if (entry.iteration >= iteration_stencil.size()) {
       iteration_stencil.push_back(0);
@@ -192,6 +188,10 @@ void World::render() const
         _renderer.clear_stencil(stencil_write_mask);
       }
     }
+
+    _renderer.world(entry.orientation, entry.clip_point, entry.clip_normal);
+    _renderer.depth(*entry.chunk->mesh, stencil_ref, stencil_test_mask);
+    _renderer.draw(*entry.chunk->mesh, stencil_ref, stencil_test_mask);
 
     std::vector<std::pair<const Portal*, uint32_t>> portals_added;
     for (const auto& portal : entry.chunk->portals) {
@@ -210,7 +210,10 @@ void World::render() const
       // might be to divide up the depth buffer according to max_iterations and
       // use different ranges for each level of the portal tree. This might also
       // avoid having to clear the stencil buffer?)
-      auto stencil = ++iteration_stencil[entry.iteration];
+      auto stencil_index = iteration_stencil[entry.iteration]++;
+      auto stencil = 1 + stencil_index % (0xf - 1);
+      // TODO: work out exactly what the ramifications are if we repeat stencil
+      // indices on an iteration.
       auto stencil_ref = combine_mask(entry.iteration, entry.stencil, stencil);
       _renderer.stencil(*portal.portal_mesh, stencil_ref,
                         stencil_test_mask, stencil_write_mask);
