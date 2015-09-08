@@ -96,8 +96,11 @@ void World::update(const ControlData& controls)
     if (jt == _chunks.end()) {
       continue;
     }
+    // The order looks wrong, but: we want to premultiply by
+    //   orientation * portal_matrix * orientation^(-1)
+    // which is the same as postmultiplying by portal_matrix.
     environment.push_back(
-        {jt->second.mesh.get(), portal_matrix(portal) * _orientation});
+        {jt->second.mesh.get(), _orientation * portal_matrix(portal)});
   }
 
   auto player_origin = _player.get_position();
@@ -128,7 +131,7 @@ void World::update(const ControlData& controls)
     // We probably want to translate back to the origin at some point (without
     // messing with normals, somehow).
     _active_chunk = portal.chunk_name;
-    _orientation = portal_matrix(portal) * _orientation;
+    _orientation = _orientation * portal_matrix(portal);
     break;
   }
 }
@@ -219,7 +222,7 @@ void World::render() const
           glm::transpose(glm::inverse(glm::mat3{entry.orientation}));
       glm::vec3 clip_point{entry.orientation * glm::vec4{portal.local.origin, 1}};
       auto clip_normal = -normal_orientation * portal.local.normal;
-      auto orientation = portal_matrix(portal) * entry.orientation;
+      auto orientation = entry.orientation * portal_matrix(portal);
 
       queue.push_back(chunk_entry{
           &jt->second, &portal, orientation, clip_point, clip_normal,
@@ -234,12 +237,13 @@ void World::render() const
     }
 
     auto strict_stencil_test_mask = combine_mask(entry.iteration, 0xf, 0x0);
+    auto translate = glm::translate(glm::mat4{}, _player.get_position());
     // Render objects in the source chunk.
     for (const auto& pair : portals_added) {
       if (pair.first->chunk_name == _active_chunk) {
         auto transform =
-            portal_matrix(*pair.first) * entry.orientation * inv_orientation *
-            glm::translate(glm::mat4{}, _player.get_position());
+            entry.orientation * portal_matrix(*pair.first) *
+            inv_orientation * translate;
         _renderer.world(transform);
         _renderer.draw(
             _player.get_mesh(), stencil_ref, strict_stencil_test_mask);
@@ -248,7 +252,6 @@ void World::render() const
 
     // Render objects in the target chunk. Are these really both necessary?
     if (entry.iteration && entry.chunk == &it->second) {
-      auto translate = glm::translate(glm::mat4{}, _player.get_position());
       _renderer.world(entry.orientation * inv_orientation * translate);
       _renderer.draw(
           _player.get_mesh(), stencil_ref, strict_stencil_test_mask);
