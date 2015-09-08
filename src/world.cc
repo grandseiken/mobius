@@ -143,7 +143,7 @@ void World::render() const
     return;
   }
 
-  static const uint32_t max_iterations = 8;
+  static const uint32_t max_iterations = 4;
   auto inv_orientation = glm::inverse(_orientation);
   auto head = _player.get_head_position();
   auto look = _player.get_look_position();
@@ -211,9 +211,8 @@ void World::render() const
       // use different ranges for each level of the portal tree. This might also
       // avoid having to clear the stencil buffer?)
       auto stencil_index = iteration_stencil[entry.iteration]++;
+      // TODO: this should really warn when we reuse stencil bits.
       auto stencil = 1 + stencil_index % (0xf - 1);
-      // TODO: work out exactly what the ramifications are if we repeat stencil
-      // indices on an iteration.
       auto stencil_ref = combine_mask(entry.iteration, entry.stencil, stencil);
       _renderer.stencil(*portal.portal_mesh, stencil_ref,
                         stencil_test_mask, stencil_write_mask);
