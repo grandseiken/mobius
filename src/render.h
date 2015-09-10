@@ -37,6 +37,8 @@ public:
   void grain(float amount) const;
   void render() const;
 
+  float get_aspect_ratio() const;
+
 private:
   void compute_transform() const;
   // We should really avoid setting uniforms that haven't changed. Maybe using

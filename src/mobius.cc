@@ -42,7 +42,6 @@ int main(int argc, char** argv)
   window.setVerticalSyncEnabled(true);
   Renderer renderer;
   renderer.resize(window_size(window));
-  renderer.perspective(glm::pi<float>() / 2, 1. / 1024, 1024);
   World world{world_path, renderer};
 
   bool focus = true;

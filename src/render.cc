@@ -430,6 +430,11 @@ void Renderer::render() const
                     GL_COLOR_BUFFER_BIT, GL_NEAREST);
 }
 
+float Renderer::get_aspect_ratio() const
+{
+  return _dimensions.x / _dimensions.y;
+}
+
 void Renderer::compute_transform() const
 {
   if (_vp_transform_dirty) {

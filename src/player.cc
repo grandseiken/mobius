@@ -3,11 +3,15 @@
 #include <glm/gtc/constants.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 
-Player::Player(const Collision& collision, const glm::vec3& position)
+Player::Player(const Collision& collision, const glm::vec3& position,
+               float fov, float z_near, float z_far)
 : _collision(collision)
 , _mesh{"gen/data/player.mesh.pb"}
 , _position{position}
 , _look_dir{0, 0, 1}
+, _fov{fov}
+, _z_near{z_near}
+, _z_far{z_far}
 , _angle{0, 0}
 {
 }
@@ -60,9 +64,24 @@ glm::vec3 Player::get_head_position() const
   return _position;
 }
 
-glm::vec3 Player::get_look_position() const
+glm::vec3 Player::get_look_direction() const
 {
-  return get_head_position() + _look_dir;
+  return _look_dir;
+}
+
+float Player::get_fov() const
+{
+  return _fov;
+}
+
+float Player::get_z_near() const
+{
+  return _z_near;
+}
+
+float Player::get_z_far() const
+{
+  return _z_far;
 }
 
 const Mesh& Player::get_mesh() const

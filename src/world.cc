@@ -4,7 +4,9 @@
 #include "render.h"
 #include <glm/vec4.hpp>
 #include <glm/mat4x4.hpp>
+#include <glm/gtc/constants.hpp>
 #include <glm/gtc/matrix_transform.hpp>
+#include <cmath>
 #include <deque>
 
 namespace {
@@ -23,38 +25,108 @@ namespace {
     return glm::inverse(local) * remote;
   }
 
-  bool mesh_visible(const glm::vec3& head, const glm::vec3& look,
+  std::vector<std::pair<glm::vec3, glm::vec3>>
+  calculate_frustum_data(const Player& player, float aspect_ratio)
+  {
+    // TODO: the planes are not exactly right.
+    auto eye = player.get_head_position();
+    auto dir = player.get_look_direction();
+    auto f = std::tan(player.get_fov() / 2);
+    auto z_near = player.get_z_near();
+    auto z_far = player.get_z_far();
+
+    auto h_normal = glm::cross(dir, glm::vec3{0, 1, 0});
+    auto v_normal = glm::cross(dir, h_normal);
+    auto h = f * aspect_ratio * h_normal;
+    auto v = f * v_normal;
+
+    auto c = eye + z_near * dir;
+    auto z = eye + z_far * dir;
+    auto t = c - z_near * v;
+    auto b = c + z_near * v;
+    auto l = c - z_near * h;
+    auto r = c + z_near * h;
+
+    auto tl = t - z_near * h;
+    auto tr = t + z_near * h;
+    auto bl = b - z_near * h;
+    auto br = b + z_near * h;
+
+    std::vector<std::pair<glm::vec3, glm::vec3>> result;
+    auto tn = glm::normalize(glm::cross(t - eye, tr - eye));
+    auto bn = glm::normalize(glm::cross(b - eye, bl - eye));
+    auto ln = glm::normalize(glm::cross(l - eye, tl - eye));
+    auto rn = glm::normalize(glm::cross(r - eye, br - eye));
+
+    result.push_back({t, tn});
+    result.push_back({b, bn});
+    result.push_back({l, ln});
+    result.push_back({r, rn});
+    result.push_back({c, dir});
+    result.push_back({z, -dir});
+    return result;
+  }
+
+  bool mesh_visible(const std::vector<std::pair<glm::vec3, glm::vec3>>& planes,
+                    const glm::vec3& eye,
                     const glm::mat4& transform, const Mesh& mesh)
   {
-    // Extremely simple visibility determination. We will probably need
-    // something more robust. The clip check should respect the view frustum at
-    // the very least.
-    bool clipped = true;
-    for (const auto& v : mesh.physical_vertices()) {
-      glm::vec3 vt{transform * glm::vec4{v, 1}};
-      if (glm::dot(look - head, vt - head) >= 0) {
-        clipped = false;
-        break;
+    auto check = [&](const glm::vec3& point, const glm::vec3& normal,
+                     const glm::vec3& v)
+    {
+      return glm::dot(v - point, normal) >= 0;
+    };
+
+    auto inside_all = [&](const glm::vec3& v)
+    {
+      for (const auto& plane: planes) {
+        if (!check(plane.first, plane.second, v)) {
+          return false;
+        }
       }
-    }
-    bool backfacing = true;
-    for (const auto& t : mesh.physical_faces()) {
-      glm::vec3 a{transform * glm::vec4{t.a, 1}};
-      glm::vec3 b{transform * glm::vec4{t.b, 1}};
-      glm::vec3 c{transform * glm::vec4{t.c, 1}};
+      return true;
+    };
+
+    auto outside_any = [&](
+        const glm::vec3& a, const glm::vec3& b, const glm::vec3& c)
+    {
+      for (const auto& plane: planes) {
+        if (!check(plane.first, plane.second, a) &&
+            !check(plane.first, plane.second, b) &&
+            !check(plane.first, plane.second, c)) {
+          return true;
+        }
+      }
+      return false;
+    };
+
+    // Simple visibility determination. We will probably need something more
+    // robust.
+    for (const auto& v : mesh.physical_faces()) {
+      glm::vec3 a{transform * glm::vec4{v.a, 1}};
+      glm::vec3 b{transform * glm::vec4{v.b, 1}};
+      glm::vec3 c{transform * glm::vec4{v.c, 1}};
+
+      // Back face cull.
       auto normal = glm::cross(b - a, c - a);
-      if (glm::dot(normal, head - a) >= 0) {
-        backfacing = false;
-        break;
+      if (glm::dot(normal, eye - a) <= 0) {
+        continue;
+      }
+
+      // (Conservative) view frustum intersection.
+      if (inside_all(a) || inside_all(b) || inside_all(c) ||
+          !outside_any(a, b, c)) {
+        return true;
       }
     }
-    return !clipped && !backfacing;
+
+    return false;
   }
 }
 
 World::World(const std::string& path, Renderer& renderer)
 : _renderer(renderer)
-, _player{_collision, {0, 1, 0}}
+, _player{_collision, {0, 1, 0}, glm::pi<float>() / 2, 1. / 1024, 1024}
 {
   auto world = load_proto<mobius::proto::world>(path);
   for (const auto& chunk_proto : world.chunk()) {
@@ -146,10 +218,14 @@ void World::render() const
   static const uint32_t max_iterations = 4;
   auto inv_orientation = glm::inverse(_orientation);
   auto head = _player.get_head_position();
-  auto look = _player.get_look_position();
-  _renderer.camera(head, look, {0, 1, 0});
+  auto look_at = head + _player.get_look_direction();
+  _renderer.perspective(
+      _player.get_fov(), _player.get_z_near(), _player.get_z_far());
+  _renderer.camera(head, look_at, {0, 1, 0});
   _renderer.light(head, 128.f);
   _renderer.clear();
+  auto clip_planes =
+      calculate_frustum_data(_player, _renderer.get_aspect_ratio());
 
   struct chunk_entry {
     const Chunk* chunk;
@@ -170,6 +246,7 @@ void World::render() const
         (write_mask & 0x0f) | (test_mask & 0x0f) << 4;
   };
 
+  // TODO: reorganise all this.
   queue.push_back(
       chunk_entry{&it->second, nullptr, _orientation, {}, {}, 0, 0});
   while (!queue.empty()) {
@@ -189,6 +266,13 @@ void World::render() const
       }
     }
 
+    if (entry.iteration > 0) {
+      if (clip_planes.size() == 6) {
+        clip_planes.emplace_back();
+      }
+      clip_planes.rbegin()->first = entry.clip_point;
+      clip_planes.rbegin()->second = entry.clip_normal;
+    }
     _renderer.world(entry.orientation, entry.clip_point, entry.clip_normal);
     _renderer.depth(*entry.chunk->mesh, stencil_ref, stencil_test_mask);
     _renderer.draw(*entry.chunk->mesh, stencil_ref, stencil_test_mask);
@@ -199,8 +283,10 @@ void World::render() const
       bool is_source = entry.source &&
           portal.portal_id == entry.source->portal_id &&
           &portal != entry.source;
+
       if (last_iteration || jt == _chunks.end() || is_source ||
-          !mesh_visible(head, look, entry.orientation, *portal.portal_mesh)) {
+          !mesh_visible(clip_planes, head,
+                        entry.orientation, *portal.portal_mesh)) {
         continue;
       }
 

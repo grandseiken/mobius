@@ -20,13 +20,17 @@ class Collision;
 class Object;
 class Player {
 public:
-  Player(const Collision& collision, const glm::vec3& position);
+  Player(const Collision& collision, const glm::vec3& position,
+         float fov, float z_near, float z_far);
 
   void update(const ControlData& controls,
               const std::vector<Object>& environment);
   glm::vec3 get_position() const;
   glm::vec3 get_head_position() const;
-  glm::vec3 get_look_position() const;
+  glm::vec3 get_look_direction() const;
+  float get_fov() const;
+  float get_z_near() const;
+  float get_z_far() const;
   const Mesh& get_mesh() const;
 
 private:
@@ -35,6 +39,10 @@ private:
 
   glm::vec3 _position;
   glm::vec3 _look_dir;
+  float _fov;
+  float _z_near;
+  float _z_far;
+
   glm::vec2 _angle;
   float _fall_speed = 0;
 
