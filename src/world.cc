@@ -28,42 +28,32 @@ namespace {
   std::vector<std::pair<glm::vec3, glm::vec3>>
   calculate_frustum_data(const Player& player, float aspect_ratio)
   {
-    // TODO: the planes are not exactly right.
     auto eye = player.get_head_position();
     auto dir = player.get_look_direction();
     auto f = std::tan(player.get_fov() / 2);
-    auto z_near = player.get_z_near();
-    auto z_far = player.get_z_far();
 
-    auto h_normal = glm::cross(dir, glm::vec3{0, 1, 0});
-    auto v_normal = glm::cross(dir, h_normal);
+    auto h_normal = glm::normalize(glm::cross(dir, glm::vec3{0, 1, 0}));
+    auto v_normal = glm::normalize(glm::cross(h_normal, dir));
     auto h = f * aspect_ratio * h_normal;
     auto v = f * v_normal;
 
-    auto c = eye + z_near * dir;
-    auto z = eye + z_far * dir;
-    auto t = c - z_near * v;
-    auto b = c + z_near * v;
-    auto l = c - z_near * h;
-    auto r = c + z_near * h;
+    auto b = eye + dir - v;
+    auto t = eye + dir + v;
+    auto l = eye + dir - h;
+    auto r = eye + dir + h;
 
-    auto tl = t - z_near * h;
-    auto tr = t + z_near * h;
-    auto bl = b - z_near * h;
-    auto br = b + z_near * h;
+    auto bn = glm::normalize(glm::cross(b - eye, b - h - eye));
+    auto tn = glm::normalize(glm::cross(t - eye, t + h - eye));
+    auto ln = glm::normalize(glm::cross(l - eye, t - h - eye));
+    auto rn = glm::normalize(glm::cross(r - eye, b + h - eye));
 
     std::vector<std::pair<glm::vec3, glm::vec3>> result;
-    auto tn = glm::normalize(glm::cross(t - eye, tr - eye));
-    auto bn = glm::normalize(glm::cross(b - eye, bl - eye));
-    auto ln = glm::normalize(glm::cross(l - eye, tl - eye));
-    auto rn = glm::normalize(glm::cross(r - eye, br - eye));
-
     result.push_back({t, tn});
     result.push_back({b, bn});
     result.push_back({l, ln});
     result.push_back({r, rn});
-    result.push_back({c, dir});
-    result.push_back({z, -dir});
+    result.push_back({eye + player.get_z_near() * dir, dir});
+    result.push_back({eye + player.get_z_far() * dir, -dir});
     return result;
   }
 
@@ -126,7 +116,7 @@ namespace {
 
 World::World(const std::string& path, Renderer& renderer)
 : _renderer(renderer)
-, _player{_collision, {0, 1, 0}, glm::pi<float>() / 2, 1. / 1024, 1024}
+, _player{_collision, {0, 1, 0}, glm::pi<float>() / 2, 1. / 256, 256}
 {
   auto world = load_proto<mobius::proto::world>(path);
   for (const auto& chunk_proto : world.chunk()) {
@@ -226,6 +216,7 @@ void World::render() const
   _renderer.clear();
   auto clip_planes =
       calculate_frustum_data(_player, _renderer.get_aspect_ratio());
+  auto clip_plane_count = clip_planes.size();
 
   struct chunk_entry {
     const Chunk* chunk;
@@ -267,7 +258,7 @@ void World::render() const
     }
 
     if (entry.iteration > 0) {
-      if (clip_planes.size() == 6) {
+      if (clip_planes.size() == clip_plane_count) {
         clip_planes.emplace_back();
       }
       clip_planes.rbegin()->first = entry.clip_point;

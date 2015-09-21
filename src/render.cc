@@ -432,7 +432,7 @@ void Renderer::render() const
 
 float Renderer::get_aspect_ratio() const
 {
-  return _dimensions.x / _dimensions.y;
+  return float(_dimensions.x) / _dimensions.y;
 }
 
 void Renderer::compute_transform() const

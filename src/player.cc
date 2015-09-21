@@ -29,8 +29,8 @@ void Player::update(const ControlData& controls,
       sin(_angle.y),
       cos(_angle.y) * cos(-_angle.x)};
 
-  auto side_dir = glm::cross(_look_dir, {0, 1, 0});
-  auto forward_dir = glm::cross({0, 1, 0}, side_dir);
+  auto side_dir = glm::normalize(glm::cross(_look_dir, {0, 1, 0}));
+  auto forward_dir = glm::normalize(glm::cross({0, 1, 0}, side_dir));
 
   auto velocity =
       forward_dir * float(controls.forward - controls.reverse) +

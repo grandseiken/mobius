@@ -1,5 +1,4 @@
 #include <SFML/Window.hpp>
-#include <glm/gtc/constants.hpp>
 #include "render.h"
 #include "world.h"
 
