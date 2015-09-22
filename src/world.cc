@@ -68,7 +68,7 @@ namespace {
 
     auto inside_all = [&](const glm::vec3& v)
     {
-      for (const auto& plane: planes) {
+      for (const auto& plane : planes) {
         if (!check(plane.first, plane.second, v)) {
           return false;
         }
@@ -79,7 +79,7 @@ namespace {
     auto outside_any = [&](
         const glm::vec3& a, const glm::vec3& b, const glm::vec3& c)
     {
-      for (const auto& plane: planes) {
+      for (const auto& plane : planes) {
         if (!check(plane.first, plane.second, a) &&
             !check(plane.first, plane.second, b) &&
             !check(plane.first, plane.second, c)) {
@@ -172,10 +172,10 @@ void World::update(const ControlData& controls)
     // For the same reasons as general collision, we need to consider several
     // vertices of the object to avoid it slipping through quads.
     //
-    // The scale factor should be large enough such that the scaled width of
+    // The scale factor should be small enough such that the scaled width of
     // the player mesh is less than the distance between corresponding portal
-    // meshes, but small enough that the projection quad never touches the
-    // portal stencil.
+    // meshes, but large enough that the projection quad never touches the
+    // portal stencil before we change chunks.
     bool crossed = false;
     for (const auto& v : _player.get_mesh().physical_vertices()) {
       const float scale_factor = .5f;
@@ -204,7 +204,7 @@ void World::render() const
     return;
   }
 
-  static const uint32_t max_iterations = 4;
+  static const uint32_t max_iterations = 3;
   auto inv_orientation = glm::inverse(_orientation);
   auto head = _player.get_head_position();
   auto look_at = head + _player.get_look_direction();
@@ -223,14 +223,12 @@ void World::render() const
     uint32_t stencil;
   };
 
-  auto combine_mask = [&](uint32_t iteration,
-                          uint32_t test_mask, uint32_t write_mask)
+  static const uint32_t value_bits = 0x7f;
+  static const uint32_t flag_bits = 0x80;
+  auto combine_mask = [&](bool flag, uint32_t value)
   {
-    return iteration % 2 ?
-        (test_mask & 0x0f) | (write_mask & 0x0f) << 4 :
-        (write_mask & 0x0f) | (test_mask & 0x0f) << 4;
+    return (flag ? flag_bits : 0) | (value & value_bits);
   };
-
   auto clip_planes =
       calculate_frustum_data(_player, _renderer.get_aspect_ratio());
 
@@ -246,15 +244,8 @@ void World::render() const
        iteration < max_iterations && !read_buffer->empty(); ++iteration) {
     bool last_iteration = iteration + 1 >= max_iterations;
     uint32_t iteration_stencil = 0;
-    uint32_t stencil_test_mask =
-        !iteration ? 0x00 : combine_mask(iteration, 0xf, 0x0);
-    uint32_t stencil_write_mask = combine_mask(iteration, 0x0, 0xf);
-
     if (iteration == 1) {
       clip_planes.emplace_back();
-    }
-    if (iteration >= 2 && !last_iteration) {
-      _renderer.clear_stencil(stencil_write_mask);
     }
 
     for (const auto& entry : *read_buffer) {
@@ -263,34 +254,42 @@ void World::render() const
         clip_planes.rbegin()->second = entry.clip_normal;
       }
 
-      uint32_t stencil_ref = combine_mask(iteration, entry.stencil, 0x0);
+      // Establish depth buffer for this chunk.
+      uint32_t stencil_ref = combine_mask(false, entry.stencil);
       _renderer.world(entry.orientation, entry.clip_point, entry.clip_normal);
-      _renderer.depth(*entry.chunk->mesh, stencil_ref, stencil_test_mask);
-      _renderer.draw(*entry.chunk->mesh, stencil_ref, stencil_test_mask);
+      _renderer.depth(*entry.chunk->mesh, stencil_ref, value_bits);
 
+      // Render objects in the chunk.
+      // Since we currently only have a player, "get objects in chunk" is just
+      // "get the player in the active_chunk on nonzero iterations".
+      // TODO: isn't right any more, but drawing the objects from the next
+      // iteration in this stencil could result in overlapping spaces. Need to
+      // think it through.
+      if (iteration && entry.chunk == &it->second) {
+        auto translate = glm::translate(glm::mat4{}, _player.get_position());
+        _renderer.world(entry.orientation * inv_orientation * translate);
+        _renderer.draw(_player.get_mesh(), stencil_ref, value_bits);
+      }
+
+      // Renderer the chunk.
+      _renderer.world(entry.orientation, entry.clip_point, entry.clip_normal);
+      _renderer.draw(*entry.chunk->mesh, stencil_ref, value_bits);
+
+      auto write_end = write_buffer->size();
       for (const auto& portal : entry.chunk->portals) {
         auto jt = _chunks.find(portal.chunk_name);
         bool is_source = entry.source &&
             portal.portal_id == entry.source->portal_id &&
             &portal != entry.source;
 
+        // TODO: something is wrong with portal visibility for rotated portals?
         if (last_iteration || jt == _chunks.end() || is_source ||
             !mesh_visible(clip_planes, head,
                           entry.orientation, *portal.portal_mesh)) {
           continue;
         }
-
-        // To avoid awkwardly-placed portals being seen through other stencils
-        // and messing up the buffer, we have to render first with depth-writing
-        // enabled and then manually clear the depth. (A possibly-faster
-        // approach might be to divide up the depth buffer according to
-        // max_iterations and use different ranges for each level of the portal
-        // tree. This might also avoid having to clear the stencil buffer?)
         // TODO: this should really warn when we reuse stencil bits.
-        auto stencil = 1 + iteration_stencil++ % (0xf - 1);
-        auto stencil_ref = combine_mask(iteration, entry.stencil, stencil);
-        _renderer.stencil(*portal.portal_mesh, stencil_ref,
-                          stencil_test_mask, stencil_write_mask);
+        auto stencil = 1 + iteration_stencil++ % (value_bits - 1);
 
         // We have to clip behind the portal so that we don't see overlapping
         // geometry hanging about.
@@ -304,34 +303,40 @@ void World::render() const
         write_buffer->push_back(chunk_entry{&jt->second, &portal, orientation,
                                             clip_point, clip_normal, stencil});
       }
-    }
 
-    // Clear all the portal depths for the next iteration.
-    for (const auto& entry : *write_buffer) {
-      auto next_stencil_ref = combine_mask(iteration + 1, entry.stencil, 0x0);
-      auto next_stencil_test_mask = combine_mask(iteration + 1, 0xf, 0x0);
-      _renderer.depth_clear(*entry.source->portal_mesh,
-                            next_stencil_ref, next_stencil_test_mask);
-    }
-
-    auto translate = glm::translate(glm::mat4{}, _player.get_position());
-    // Render objects in each chunk.
-    // TODO: isn't right any more, but drawing the objects from the next
-    // iteration in this stencil could result in overlapping spaces. Need to
-    // think it through.
-    for (const auto& entry : *read_buffer) {
-      auto transform = entry.orientation * inv_orientation * translate;
-      uint32_t stencil_ref = combine_mask(iteration, entry.stencil, 0x0);
-
-      // Since we currently only have a player, "get objects in chunk" is just
-      // "get the player in the active_chunk on nonzero iterations".
-      if (iteration && entry.chunk == &it->second) {
-        _renderer.world(transform);
-        _renderer.draw(
-            _player.get_mesh(), stencil_ref, stencil_test_mask);
+      // To avoid awkwardly-placed portals being seen through other stencils
+      // and messing up the buffer, and maximise the individual bit-
+      // combinations we can use to represent different portals per iteration,
+      // we do the following:
+      // (1) render a single flag bit into the stencil buffer for all portals,
+      //     with depth enabled
+      // (2) clear the value bits
+      // (3) rerender one of (127 - 1) remaining combinations of stencil bits
+      //     to the flagged areas only with depth function GL_EQUAL
+      // (4) clear depth and flag bit.
+      for (auto jt = write_end + write_buffer->begin();
+           jt != write_buffer->end(); ++jt) {
+        auto portal_stencil_ref = combine_mask(true, entry.stencil);
+        _renderer.stencil(
+            *jt->source->portal_mesh, portal_stencil_ref,
+            /* read */ value_bits, /* write */ flag_bits, /* depth_eq */ false);
       }
     }
 
+    _renderer.clear_stencil(value_bits);
+    // This part could theoretically cause artifacts when portals visible
+    // through different portals intersect exactly in camera space.
+    // TODO: is there any way to avoid it?
+    for (const auto& entry : *write_buffer) {
+      auto portal_stencil_ref = combine_mask(true, entry.stencil);
+      _renderer.stencil(
+          *entry.source->portal_mesh, portal_stencil_ref,
+          /* read */ flag_bits, /* write */ value_bits, /* depth_eq */ true);
+    }
+
+    // Clear all the portal depths for the next iteration and swap buffers.
+    _renderer.clear_depth();
+    _renderer.clear_stencil(flag_bits);
     read_buffer = iteration % 2 ? &buffer_a : &buffer_b;
     write_buffer = iteration % 2 ? &buffer_b : &buffer_a;
     write_buffer->clear();

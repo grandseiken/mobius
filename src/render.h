@@ -25,13 +25,13 @@ public:
   void light(const glm::vec3& source, float intensity);
 
   void clear() const;
+  void clear_depth() const;
   void clear_stencil(uint32_t stencil_mask) const;
+
   void stencil(const Mesh& mesh, uint32_t stencil_ref,
-               uint32_t test_mask, uint32_t write_mask) const;
+               uint32_t test_mask, uint32_t write_mask, bool depth_eq) const;
   void depth(const Mesh& mesh, uint32_t stencil_ref,
                                uint32_t stencil_mask) const;
-  void depth_clear(const Mesh& mesh, uint32_t stencil_ref,
-                                     uint32_t stencil_mask) const;
   void draw(const Mesh& mesh, uint32_t stencil_ref,
                               uint32_t stencil_mask) const;
   void grain(float amount) const;
