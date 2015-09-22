@@ -204,7 +204,7 @@ void World::render() const
     return;
   }
 
-  static const uint32_t max_iterations = 3;
+  static const uint32_t max_iterations = 4;
   auto inv_orientation = glm::inverse(_orientation);
   auto head = _player.get_head_position();
   auto look_at = head + _player.get_look_direction();
@@ -214,13 +214,19 @@ void World::render() const
   _renderer.light(head, 128.f);
   _renderer.clear();
 
-  struct chunk_entry {
-    const Chunk* chunk;
-    const Portal* source;
+  struct world_data {
     glm::mat4 orientation;
     glm::vec3 clip_point;
     glm::vec3 clip_normal;
+  };
+
+  struct chunk_entry {
+    const Chunk* chunk;
+    const Portal* source;
     uint32_t stencil;
+
+    world_data data;
+    world_data source_data;
   };
 
   static const uint32_t value_bits = 0x7f;
@@ -231,11 +237,13 @@ void World::render() const
   };
   auto clip_planes =
       calculate_frustum_data(_player, _renderer.get_aspect_ratio());
+  // Space for the portal clip plane.
+  clip_planes.emplace_back();
 
   std::vector<chunk_entry> buffer_a;
   std::vector<chunk_entry> buffer_b;
-  buffer_a.push_back(
-      chunk_entry{&it->second, nullptr, _orientation, {}, {}, 0});
+  buffer_a.push_back({&it->second, nullptr, 0,
+                      {_orientation, {}, {}}, {{}, {}, {}}});
 
   const std::vector<chunk_entry>* read_buffer = &buffer_a;
   std::vector<chunk_entry>* write_buffer = &buffer_b;
@@ -244,22 +252,17 @@ void World::render() const
        iteration < max_iterations && !read_buffer->empty(); ++iteration) {
     bool last_iteration = iteration + 1 >= max_iterations;
     uint32_t iteration_stencil = 0;
-    // TODO: something is wrong with rendering portals when the breadth is
-    // greater than 1 on the second iteration (at least)... but only *one* of
-    // them.
-    if (iteration == 1) {
-      clip_planes.emplace_back();
-    }
 
     for (const auto& entry : *read_buffer) {
       if (iteration) {
-        clip_planes.rbegin()->first = entry.clip_point;
-        clip_planes.rbegin()->second = entry.clip_normal;
+        clip_planes.rbegin()->first = entry.data.clip_point;
+        clip_planes.rbegin()->second = entry.data.clip_normal;
       }
 
       // Establish depth buffer for this chunk.
       uint32_t stencil_ref = combine_mask(false, entry.stencil);
-      _renderer.world(entry.orientation, entry.clip_point, entry.clip_normal);
+      _renderer.world(entry.data.orientation,
+                      entry.data.clip_point, entry.data.clip_normal);
       _renderer.depth(*entry.chunk->mesh, stencil_ref, value_bits);
 
       // Render objects in the chunk.
@@ -270,41 +273,14 @@ void World::render() const
       // think it through.
       if (iteration && entry.chunk == &it->second) {
         auto translate = glm::translate(glm::mat4{}, _player.get_position());
-        _renderer.world(entry.orientation * inv_orientation * translate);
+        _renderer.world(entry.data.orientation * inv_orientation * translate);
         _renderer.draw(_player.get_mesh(), stencil_ref, value_bits);
       }
 
       // Renderer the chunk.
-      _renderer.world(entry.orientation, entry.clip_point, entry.clip_normal);
+      _renderer.world(entry.data.orientation,
+                      entry.data.clip_point, entry.data.clip_normal);
       _renderer.draw(*entry.chunk->mesh, stencil_ref, value_bits);
-
-      auto write_end = write_buffer->size();
-      for (const auto& portal : entry.chunk->portals) {
-        auto jt = _chunks.find(portal.chunk_name);
-        bool is_source = entry.source &&
-            portal.portal_id == entry.source->portal_id &&
-            &portal != entry.source;
-
-        if (last_iteration || jt == _chunks.end() || is_source ||
-            !mesh_visible(clip_planes, head,
-                          entry.orientation, *portal.portal_mesh)) {
-          continue;
-        }
-        // TODO: this should really warn when we reuse stencil bits.
-        auto stencil = 1 + iteration_stencil++ % (value_bits - 1);
-
-        // We have to clip behind the portal so that we don't see overlapping
-        // geometry hanging about.
-        auto normal_orientation =
-            glm::transpose(glm::inverse(glm::mat3{entry.orientation}));
-        glm::vec3 clip_point{
-            entry.orientation * glm::vec4{portal.local.origin, 1}};
-        auto clip_normal = -normal_orientation * portal.local.normal;
-
-        auto orientation = entry.orientation * portal_matrix(portal);
-        write_buffer->push_back(chunk_entry{&jt->second, &portal, orientation,
-                                            clip_point, clip_normal, stencil});
-      }
 
       // To avoid awkwardly-placed portals being seen through other stencils
       // and messing up the buffer, and maximise the individual bit-
@@ -316,11 +292,36 @@ void World::render() const
       // (3) rerender one of (127 - 1) remaining combinations of stencil bits
       //     to the flagged areas only with depth function GL_EQUAL
       // (4) clear depth and flag bit.
-      for (auto jt = write_end + write_buffer->begin();
-           jt != write_buffer->end(); ++jt) {
+      for (const auto& portal : entry.chunk->portals) {
+        auto jt = _chunks.find(portal.chunk_name);
+        bool is_source = entry.source &&
+            portal.portal_id == entry.source->portal_id &&
+            &portal != entry.source;
+
+        if (last_iteration || jt == _chunks.end() || is_source ||
+            !mesh_visible(clip_planes, head,
+                          entry.data.orientation, *portal.portal_mesh)) {
+          continue;
+        }
+        // TODO: this should really warn when we reuse stencil bits.
+        auto stencil = 1 + iteration_stencil++ % (value_bits - 1);
+
+        // We have to clip behind the portal so that we don't see overlapping
+        // geometry hanging about.
+        auto normal_orientation =
+            glm::transpose(glm::inverse(glm::mat3{entry.data.orientation}));
+        glm::vec3 clip_point{
+            entry.data.orientation * glm::vec4{portal.local.origin, 1}};
+        auto clip_normal = -normal_orientation * portal.local.normal;
+
+        auto orientation = entry.data.orientation * portal_matrix(portal);
+        write_buffer->push_back({&jt->second, &portal, stencil,
+                                 {orientation, clip_point, clip_normal},
+                                 entry.data});
+
         auto portal_stencil_ref = combine_mask(true, entry.stencil);
         _renderer.stencil(
-            *jt->source->portal_mesh, portal_stencil_ref,
+            *portal.portal_mesh, portal_stencil_ref,
             /* read */ value_bits, /* write */ flag_bits, /* depth_eq */ false);
       }
     }
@@ -334,6 +335,9 @@ void World::render() const
     // want to use such clipping planes anyway!
     for (const auto& entry : *write_buffer) {
       auto portal_stencil_ref = combine_mask(true, entry.stencil);
+      _renderer.world(entry.source_data.orientation,
+                      entry.source_data.clip_point,
+                      entry.source_data.clip_normal);
       _renderer.stencil(
           *entry.source->portal_mesh, portal_stencil_ref,
           /* read */ flag_bits, /* write */ value_bits, /* depth_eq */ true);
