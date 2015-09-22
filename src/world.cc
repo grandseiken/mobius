@@ -244,6 +244,9 @@ void World::render() const
        iteration < max_iterations && !read_buffer->empty(); ++iteration) {
     bool last_iteration = iteration + 1 >= max_iterations;
     uint32_t iteration_stencil = 0;
+    // TODO: something is wrong with rendering portals when the breadth is
+    // greater than 1 on the second iteration (at least)... but only *one* of
+    // them.
     if (iteration == 1) {
       clip_planes.emplace_back();
     }
@@ -282,7 +285,6 @@ void World::render() const
             portal.portal_id == entry.source->portal_id &&
             &portal != entry.source;
 
-        // TODO: something is wrong with portal visibility for rotated portals?
         if (last_iteration || jt == _chunks.end() || is_source ||
             !mesh_visible(clip_planes, head,
                           entry.orientation, *portal.portal_mesh)) {
@@ -326,7 +328,10 @@ void World::render() const
     _renderer.clear_stencil(value_bits);
     // This part could theoretically cause artifacts when portals visible
     // through different portals intersect exactly in camera space.
-    // TODO: is there any way to avoid it?
+    // TODO: is there any way to avoid it? Possibly by using additional
+    // clipping planes just for this bit, since such portals would necessarily
+    // be separated by the portals they're being viewed through. We probably
+    // want to use such clipping planes anyway!
     for (const auto& entry : *write_buffer) {
       auto portal_stencil_ref = combine_mask(true, entry.stencil);
       _renderer.stencil(
