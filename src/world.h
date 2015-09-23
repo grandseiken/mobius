@@ -39,8 +39,33 @@ public:
   void render() const;
 
 private:
-  Renderer& _renderer;
+  struct world_data {
+    glm::mat4 orientation;
+    glm::vec3 clip_point;
+    glm::vec3 clip_normal;
+  };
 
+  struct chunk_entry {
+    const Chunk* chunk;
+    const Portal* source;
+    uint32_t stencil;
+
+    world_data data;
+    world_data source_data;
+  };
+
+  void render_iteration(
+      uint32_t iteration,
+      const std::vector<chunk_entry>& read_buffer,
+      std::vector<chunk_entry>& write_buffer) const;
+
+  void render_objects_in_chunk(
+      uint32_t iteration, const Chunk* chunk,
+      const world_data& data, uint32_t stencil_ref) const;
+
+  static const uint32_t MAX_ITERATIONS = 4;
+
+  Renderer& _renderer;
   std::unordered_map<std::string, Chunk> _chunks;
   std::string _active_chunk;
   glm::mat4 _orientation;

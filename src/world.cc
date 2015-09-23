@@ -111,6 +111,13 @@ namespace {
 
     return false;
   }
+
+  static const uint32_t VALUE_BITS = 0x7f;
+  static const uint32_t FLAG_BITS = 0x80;
+  uint32_t combine_mask(bool flag, uint32_t value)
+  {
+    return (flag ? FLAG_BITS : 0) | (value & VALUE_BITS);
+  }
 }
 
 World::World(const std::string& path, Renderer& renderer)
@@ -204,9 +211,7 @@ void World::render() const
     return;
   }
 
-  static const uint32_t max_iterations = 4;
-  auto inv_orientation = glm::inverse(_orientation);
-  auto head = _player.get_head_position();
+  const auto& head = _player.get_head_position();
   auto look_at = head + _player.get_look_direction();
   _renderer.perspective(
       _player.get_fov(), _player.get_z_near(), _player.get_z_far());
@@ -214,142 +219,137 @@ void World::render() const
   _renderer.light(head, 128.f);
   _renderer.clear();
 
-  struct world_data {
-    glm::mat4 orientation;
-    glm::vec3 clip_point;
-    glm::vec3 clip_normal;
-  };
-
-  struct chunk_entry {
-    const Chunk* chunk;
-    const Portal* source;
-    uint32_t stencil;
-
-    world_data data;
-    world_data source_data;
-  };
-
-  static const uint32_t value_bits = 0x7f;
-  static const uint32_t flag_bits = 0x80;
-  auto combine_mask = [&](bool flag, uint32_t value)
-  {
-    return (flag ? flag_bits : 0) | (value & value_bits);
-  };
-  auto clip_planes =
-      calculate_frustum_data(_player, _renderer.get_aspect_ratio());
-  // Space for the portal clip plane.
-  clip_planes.emplace_back();
-
   std::vector<chunk_entry> buffer_a;
   std::vector<chunk_entry> buffer_b;
   buffer_a.push_back({&it->second, nullptr, 0,
                       {_orientation, {}, {}}, {{}, {}, {}}});
 
-  const std::vector<chunk_entry>* read_buffer = &buffer_a;
-  std::vector<chunk_entry>* write_buffer = &buffer_b;
-
-  for (std::size_t iteration = 0;
-       iteration < max_iterations && !read_buffer->empty(); ++iteration) {
-    bool last_iteration = iteration + 1 >= max_iterations;
-    uint32_t iteration_stencil = 0;
-
-    for (const auto& entry : *read_buffer) {
-      if (iteration) {
-        clip_planes.rbegin()->first = entry.data.clip_point;
-        clip_planes.rbegin()->second = entry.data.clip_normal;
-      }
-
-      // Establish depth buffer for this chunk.
-      uint32_t stencil_ref = combine_mask(false, entry.stencil);
-      _renderer.world(entry.data.orientation,
-                      entry.data.clip_point, entry.data.clip_normal);
-      _renderer.depth(*entry.chunk->mesh, stencil_ref, value_bits);
-
-      // Render objects in the chunk.
-      // Since we currently only have a player, "get objects in chunk" is just
-      // "get the player in the active_chunk on nonzero iterations".
-      // TODO: isn't right any more, but drawing the objects from the next
-      // iteration in this stencil could result in overlapping spaces. Need to
-      // think it through.
-      if (iteration && entry.chunk == &it->second) {
-        auto translate = glm::translate(glm::mat4{}, _player.get_position());
-        _renderer.world(entry.data.orientation * inv_orientation * translate);
-        _renderer.draw(_player.get_mesh(), stencil_ref, value_bits);
-      }
-
-      // Renderer the chunk.
-      _renderer.world(entry.data.orientation,
-                      entry.data.clip_point, entry.data.clip_normal);
-      _renderer.draw(*entry.chunk->mesh, stencil_ref, value_bits);
-
-      // To avoid awkwardly-placed portals being seen through other stencils
-      // and messing up the buffer, and maximise the individual bit-
-      // combinations we can use to represent different portals per iteration,
-      // we do the following:
-      // (1) render a single flag bit into the stencil buffer for all portals,
-      //     with depth enabled
-      // (2) clear the value bits
-      // (3) rerender one of (127 - 1) remaining combinations of stencil bits
-      //     to the flagged areas only with depth function GL_EQUAL
-      // (4) clear depth and flag bit.
-      for (const auto& portal : entry.chunk->portals) {
-        auto jt = _chunks.find(portal.chunk_name);
-        bool is_source = entry.source &&
-            portal.portal_id == entry.source->portal_id &&
-            &portal != entry.source;
-
-        if (last_iteration || jt == _chunks.end() || is_source ||
-            !mesh_visible(clip_planes, head,
-                          entry.data.orientation, *portal.portal_mesh)) {
-          continue;
-        }
-        // TODO: this should really warn when we reuse stencil bits.
-        auto stencil = 1 + iteration_stencil++ % (value_bits - 1);
-
-        // We have to clip behind the portal so that we don't see overlapping
-        // geometry hanging about.
-        auto normal_orientation =
-            glm::transpose(glm::inverse(glm::mat3{entry.data.orientation}));
-        glm::vec3 clip_point{
-            entry.data.orientation * glm::vec4{portal.local.origin, 1}};
-        auto clip_normal = -normal_orientation * portal.local.normal;
-
-        auto orientation = entry.data.orientation * portal_matrix(portal);
-        write_buffer->push_back({&jt->second, &portal, stencil,
-                                 {orientation, clip_point, clip_normal},
-                                 entry.data});
-
-        auto portal_stencil_ref = combine_mask(true, entry.stencil);
-        _renderer.stencil(
-            *portal.portal_mesh, portal_stencil_ref,
-            /* read */ value_bits, /* write */ flag_bits, /* depth_eq */ false);
-      }
-    }
-
-    _renderer.clear_stencil(value_bits);
-    // This part could theoretically cause artifacts when portals visible
-    // through different portals intersect exactly in camera space.
-    // TODO: is there any way to avoid it? Possibly by using additional
-    // clipping planes just for this bit, since such portals would necessarily
-    // be separated by the portals they're being viewed through. We probably
-    // want to use such clipping planes anyway!
-    for (const auto& entry : *write_buffer) {
-      auto portal_stencil_ref = combine_mask(true, entry.stencil);
-      _renderer.world(entry.source_data.orientation,
-                      entry.source_data.clip_point,
-                      entry.source_data.clip_normal);
-      _renderer.stencil(
-          *entry.source->portal_mesh, portal_stencil_ref,
-          /* read */ flag_bits, /* write */ value_bits, /* depth_eq */ true);
-    }
-
-    // Clear all the portal depths for the next iteration and swap buffers.
-    _renderer.clear_depth();
-    _renderer.clear_stencil(flag_bits);
-    read_buffer = iteration % 2 ? &buffer_a : &buffer_b;
-    write_buffer = iteration % 2 ? &buffer_b : &buffer_a;
-    write_buffer->clear();
+  for (uint32_t i = 0; i < MAX_ITERATIONS; ++i) {
+    render_iteration(i, i % 2 ? buffer_b : buffer_a,
+                        i % 2 ? buffer_a : buffer_b);
   }
   _renderer.grain(1. / 32);
   _renderer.render();
+}
+
+void World::render_iteration(
+    uint32_t iteration,
+    const std::vector<chunk_entry>& read_buffer,
+    std::vector<chunk_entry>& write_buffer) const
+{
+  write_buffer.clear();
+  if (read_buffer.empty()) {
+    return;
+  }
+
+  bool last_iteration = iteration + 1 >= MAX_ITERATIONS;
+  uint32_t iteration_stencil = 0;
+
+  auto clip_planes =
+      calculate_frustum_data(_player, _renderer.get_aspect_ratio());
+  // Space for the portal clip plane.
+  clip_planes.emplace_back();
+
+  // To avoid awkwardly-placed portals being seen through other stencils
+  // and messing up the buffer, and maximise the individual bit-
+  // combinations we can use to represent different portals per iteration,
+  // we do the following:
+  // (1) render a single flag bit into the stencil buffer for all portals,
+  //     with depth enabled
+  // (2) clear the value bits
+  // (3) rerender one of (127 - 1) remaining combinations of stencil bits
+  //     to the flagged areas only with depth function GL_EQUAL
+  // (4) clear depth and flag bit.
+  for (const auto& entry : read_buffer) {
+    if (iteration) {
+      clip_planes.rbegin()->first = entry.data.clip_point;
+      clip_planes.rbegin()->second = entry.data.clip_normal;
+    }
+
+    // Establish depth buffer for this chunk.
+    uint32_t stencil_ref = combine_mask(false, entry.stencil);
+    _renderer.world(entry.data.orientation,
+                    entry.data.clip_point, entry.data.clip_normal);
+    _renderer.depth(*entry.chunk->mesh, stencil_ref, VALUE_BITS);
+
+    render_objects_in_chunk(iteration, entry.chunk, entry.data, stencil_ref);
+    // Renderer the chunk.
+    _renderer.world(entry.data.orientation,
+                    entry.data.clip_point, entry.data.clip_normal);
+    _renderer.draw(*entry.chunk->mesh, stencil_ref, VALUE_BITS);
+
+    for (const auto& portal : entry.chunk->portals) {
+      auto jt = _chunks.find(portal.chunk_name);
+      bool is_source = entry.source &&
+          portal.portal_id == entry.source->portal_id &&
+          &portal != entry.source;
+
+      const auto& head = _player.get_head_position();
+      if (last_iteration || jt == _chunks.end() || is_source ||
+          !mesh_visible(clip_planes, head,
+                        entry.data.orientation, *portal.portal_mesh)) {
+        continue;
+      }
+      // TODO: this should really warn when we reuse stencil bits.
+      auto stencil = 1 + iteration_stencil++ % (VALUE_BITS - 1);
+
+      // We have to clip behind the portal so that we don't see overlapping
+      // geometry hanging about.
+      auto normal_orientation =
+          glm::transpose(glm::inverse(glm::mat3{entry.data.orientation}));
+      glm::vec3 clip_point{
+          entry.data.orientation * glm::vec4{portal.local.origin, 1}};
+      auto clip_normal = -normal_orientation * portal.local.normal;
+
+      auto orientation = entry.data.orientation * portal_matrix(portal);
+      write_buffer.push_back({&jt->second, &portal, stencil,
+                              {orientation, clip_point, clip_normal},
+                              entry.data});
+
+      auto portal_stencil_ref = combine_mask(true, entry.stencil);
+      _renderer.stencil(
+          *portal.portal_mesh, portal_stencil_ref,
+          /* read */ VALUE_BITS, /* write */ FLAG_BITS, /* depth_eq */ false);
+    }
+  }
+
+  _renderer.clear_stencil(VALUE_BITS);
+  // This part could theoretically cause artifacts when portals visible
+  // through different portals intersect exactly in camera space.
+  // TODO: is there any way to avoid it? Possibly by using additional
+  // clipping planes just for this bit, since such portals would necessarily
+  // be separated by the portals they're being viewed through. We probably
+  // want to use such clipping planes anyway!
+  for (const auto& entry : write_buffer) {
+    auto portal_stencil_ref = combine_mask(true, entry.stencil);
+    _renderer.world(entry.source_data.orientation,
+                    entry.source_data.clip_point,
+                    entry.source_data.clip_normal);
+    _renderer.stencil(
+        *entry.source->portal_mesh, portal_stencil_ref,
+        /* read */ FLAG_BITS, /* write */ VALUE_BITS, /* depth_eq */ true);
+  }
+
+  _renderer.clear_depth();
+  _renderer.clear_stencil(FLAG_BITS);
+}
+
+void World::render_objects_in_chunk(
+    uint32_t iteration, const Chunk* chunk,
+    const world_data& data, uint32_t stencil_ref) const
+{
+  // Since we currently only have a player, "get objects in chunk" is just
+  // "get the player in the active_chunk on nonzero iterations".
+  // TODO: isn't right any more, but drawing the objects from the next
+  // iteration in this stencil could result in overlapping spaces. Need to
+  // think it through.
+  auto it = _chunks.find(_active_chunk);
+  if (it != _chunks.end() && chunk == &it->second && iteration) {
+    auto inv_orientation = glm::inverse(_orientation);
+    auto translate = glm::translate(glm::mat4{}, _player.get_position());
+
+    _renderer.world(data.orientation * inv_orientation * translate,
+                    data.clip_point, data.clip_normal);
+    _renderer.draw(_player.get_mesh(), stencil_ref, VALUE_BITS);
+  }
 }
