@@ -33,6 +33,7 @@ struct Chunk {
 class Renderer;
 class World {
 public:
+  typedef std::pair<glm::vec3, glm::vec3> plane;
   World(const std::string& path, Renderer& renderer);
 
   void update(const ControlData& controls);
@@ -41,8 +42,7 @@ public:
 private:
   struct world_data {
     glm::mat4 orientation;
-    glm::vec3 clip_point;
-    glm::vec3 clip_normal;
+    std::vector<plane> clip_planes;
   };
 
   struct chunk_entry {

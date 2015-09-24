@@ -24,17 +24,15 @@ namespace {
     return glm::inverse(local) * remote;
   }
 
-  std::vector<std::pair<glm::vec3, glm::vec3>>
-  calculate_frustum_data(const Player& player, float aspect_ratio)
+  std::vector<World::plane>
+  calculate_view_frustum(const Player& player, float aspect_ratio)
   {
-    auto eye = player.get_head_position();
-    auto dir = player.get_look_direction();
+    const auto& eye = player.get_head_position();
+    const auto& dir = player.get_look_direction();
     auto f = std::tan(player.get_fov() / 2);
 
-    auto h_normal = glm::normalize(glm::cross(dir, glm::vec3{0, 1, 0}));
-    auto v_normal = glm::normalize(glm::cross(h_normal, dir));
-    auto h = f * aspect_ratio * h_normal;
-    auto v = f * v_normal;
+    auto h = f * aspect_ratio * player.get_side_direction();
+    auto v = f * player.get_up_direction();
 
     auto b = eye + dir - v;
     auto t = eye + dir + v;
@@ -46,13 +44,76 @@ namespace {
     auto ln = glm::normalize(glm::cross(l - eye, t - h - eye));
     auto rn = glm::normalize(glm::cross(r - eye, b + h - eye));
 
-    std::vector<std::pair<glm::vec3, glm::vec3>> result;
-    result.push_back({t, tn});
-    result.push_back({b, bn});
-    result.push_back({l, ln});
-    result.push_back({r, rn});
-    result.push_back({eye + player.get_z_near() * dir, dir});
-    result.push_back({eye + player.get_z_far() * dir, -dir});
+    std::vector<World::plane> result;
+    result.emplace_back(b, bn);
+    result.emplace_back(t, tn);
+    result.emplace_back(l, ln);
+    result.emplace_back(r, rn);
+    result.emplace_back(eye + player.get_z_near() * dir, dir);
+    result.emplace_back(eye + player.get_z_far() * dir, -dir);
+    return result;
+  }
+
+  std::vector<World::plane>
+  calculate_bounding_frustum(const Player& player,
+                             const glm::mat4& transform, const Portal& portal)
+  {
+    const auto& eye = player.get_head_position();
+    const auto& dir = player.get_look_direction();
+
+    auto side = player.get_side_direction();
+    auto up = player.get_up_direction();
+
+    bool first = true;
+    glm::vec2 min;
+    glm::vec2 max;
+
+    // Perspective-project each point onto plane. This is basically
+    // reimplementing the look-at matrix, right?
+    for (const auto& v : portal.portal_mesh->physical_vertices()) {
+      glm::vec3 vt{transform * glm::vec4{v, 1}};
+      auto depth = glm::dot(vt - eye, dir);
+      auto projection = vt - depth * dir;
+      glm::vec2 coords{glm::dot(projection, side), glm::dot(projection, up)};
+      coords /= depth;
+
+      // Just take the 2D bounding box in plane coordinates. This is not
+      // precise; a better way would be to reduce to a convex hull and from
+      // there to limited number of bounding planes, or to somehow consider many
+      // possible coordinate systems on the 2D plane and pick the best fit.
+      if (first) {
+        min = coords;
+        max = coords;
+      } else {
+        min = glm::min(min, coords);
+        max = glm::max(max, coords);
+      }
+      first = false;
+    }
+
+    auto bl = eye + min.x * side + min.y * up;
+    auto br = eye + max.x * side + min.y * up;
+    auto tl = eye + min.x * side + max.y * up;
+    auto tr = eye + max.x * side + max.y * up;
+
+    auto bn = glm::normalize(glm::cross(br - eye, bl - eye));
+    auto tn = glm::normalize(glm::cross(tl - eye, tr - eye));
+    auto ln = glm::normalize(glm::cross(bl - eye, tl - eye));
+    auto rn = glm::normalize(glm::cross(tr - eye, br - eye));
+
+    std::vector<World::plane> result;
+    // TODO: these seem right, but definitely aren't.
+    /*result.emplace_back(bl, -bn);
+    result.emplace_back(tr, -tn);
+    result.emplace_back(tl, -ln);
+    result.emplace_back(br, -rn);*/
+
+    // We also have to clip behind the portal so that we don't see overlapping
+    // geometry hanging about.
+    auto normal_transform = glm::transpose(glm::inverse(glm::mat3{transform}));
+    glm::vec3 clip_point{transform * glm::vec4{portal.local.origin, 1}};
+    auto clip_normal = -normal_transform * portal.local.normal;
+    result.emplace_back(clip_point, clip_normal);
     return result;
   }
 
@@ -91,10 +152,10 @@ namespace {
 
     // Simple visibility determination. We will probably need something more
     // robust.
-    for (const auto& v : mesh.physical_faces()) {
-      glm::vec3 a{transform * glm::vec4{v.a, 1}};
-      glm::vec3 b{transform * glm::vec4{v.b, 1}};
-      glm::vec3 c{transform * glm::vec4{v.c, 1}};
+    for (const auto& t : mesh.physical_faces()) {
+      glm::vec3 a{transform * glm::vec4{t.a, 1}};
+      glm::vec3 b{transform * glm::vec4{t.b, 1}};
+      glm::vec3 c{transform * glm::vec4{t.c, 1}};
 
       // Back face cull.
       auto normal = glm::cross(b - a, c - a);
@@ -221,8 +282,7 @@ void World::render() const
 
   std::vector<chunk_entry> buffer_a;
   std::vector<chunk_entry> buffer_b;
-  buffer_a.push_back({&it->second, nullptr, 0,
-                      {_orientation, {}, {}}, {{}, {}, {}}});
+  buffer_a.push_back({&it->second, nullptr, 0, {_orientation, {}}, {{}, {}}});
 
   for (uint32_t i = 0; i < MAX_ITERATIONS; ++i) {
     render_iteration(i, i % 2 ? buffer_b : buffer_a,
@@ -245,10 +305,8 @@ void World::render_iteration(
   bool last_iteration = iteration + 1 >= MAX_ITERATIONS;
   uint32_t iteration_stencil = 0;
 
-  auto clip_planes =
-      calculate_frustum_data(_player, _renderer.get_aspect_ratio());
-  // Space for the portal clip plane.
-  clip_planes.emplace_back();
+  const auto view_clip_planes =
+      calculate_view_frustum(_player, _renderer.get_aspect_ratio());
 
   // To avoid awkwardly-placed portals being seen through other stencils
   // and messing up the buffer, and maximise the individual bit-
@@ -261,21 +319,19 @@ void World::render_iteration(
   //     to the flagged areas only with depth function GL_EQUAL
   // (4) clear depth and flag bit.
   for (const auto& entry : read_buffer) {
-    if (iteration) {
-      clip_planes.rbegin()->first = entry.data.clip_point;
-      clip_planes.rbegin()->second = entry.data.clip_normal;
+    auto visibility_clip_planes = view_clip_planes;
+    for (const auto& plane : entry.data.clip_planes) {
+      visibility_clip_planes.push_back(plane);
     }
 
     // Establish depth buffer for this chunk.
     uint32_t stencil_ref = combine_mask(false, entry.stencil);
-    _renderer.world(entry.data.orientation,
-                    entry.data.clip_point, entry.data.clip_normal);
+    _renderer.world(entry.data.orientation, entry.data.clip_planes);
     _renderer.depth(*entry.chunk->mesh, stencil_ref, VALUE_BITS);
 
     render_objects_in_chunk(iteration, entry.chunk, entry.data, stencil_ref);
     // Renderer the chunk.
-    _renderer.world(entry.data.orientation,
-                    entry.data.clip_point, entry.data.clip_normal);
+    _renderer.world(entry.data.orientation, entry.data.clip_planes);
     _renderer.draw(*entry.chunk->mesh, stencil_ref, VALUE_BITS);
 
     for (const auto& portal : entry.chunk->portals) {
@@ -286,25 +342,19 @@ void World::render_iteration(
 
       const auto& head = _player.get_head_position();
       if (last_iteration || jt == _chunks.end() || is_source ||
-          !mesh_visible(clip_planes, head,
+          !mesh_visible(visibility_clip_planes, head,
                         entry.data.orientation, *portal.portal_mesh)) {
         continue;
       }
       // TODO: this should really warn when we reuse stencil bits.
       auto stencil = 1 + iteration_stencil++ % (VALUE_BITS - 1);
 
-      // We have to clip behind the portal so that we don't see overlapping
-      // geometry hanging about.
-      auto normal_orientation =
-          glm::transpose(glm::inverse(glm::mat3{entry.data.orientation}));
-      glm::vec3 clip_point{
-          entry.data.orientation * glm::vec4{portal.local.origin, 1}};
-      auto clip_normal = -normal_orientation * portal.local.normal;
-
       auto orientation = entry.data.orientation * portal_matrix(portal);
-      write_buffer.push_back({&jt->second, &portal, stencil,
-                              {orientation, clip_point, clip_normal},
-                              entry.data});
+      write_buffer.push_back({
+          &jt->second, &portal, stencil,
+          {orientation,
+           calculate_bounding_frustum(_player, entry.data.orientation, portal)},
+          entry.data});
 
       auto portal_stencil_ref = combine_mask(true, entry.stencil);
       _renderer.stencil(
@@ -315,16 +365,16 @@ void World::render_iteration(
 
   _renderer.clear_stencil(VALUE_BITS);
   // This part could theoretically cause artifacts when portals visible
-  // through different portals intersect exactly in camera space.
-  // TODO: is there any way to avoid it? Possibly by using additional
-  // clipping planes just for this bit, since such portals would necessarily
-  // be separated by the portals they're being viewed through. We probably
-  // want to use such clipping planes anyway!
+  // through different portals intersect exactly in camera space. However, if
+  // the portal clipping planes are calculated perfectly (which isn't always
+  // possible for complex portal meshes, since there is a hardware limitation
+  // on the number of clipping planes), such intersections are impossible.
+  // If such artifacts are encountered, we should improve the
+  // calculate_bounding_frustum algorithm.
   for (const auto& entry : write_buffer) {
     auto portal_stencil_ref = combine_mask(true, entry.stencil);
     _renderer.world(entry.source_data.orientation,
-                    entry.source_data.clip_point,
-                    entry.source_data.clip_normal);
+                    entry.source_data.clip_planes);
     _renderer.stencil(
         *entry.source->portal_mesh, portal_stencil_ref,
         /* read */ FLAG_BITS, /* write */ VALUE_BITS, /* depth_eq */ true);
@@ -348,8 +398,8 @@ void World::render_objects_in_chunk(
     auto inv_orientation = glm::inverse(_orientation);
     auto translate = glm::translate(glm::mat4{}, _player.get_position());
 
-    _renderer.world(data.orientation * inv_orientation * translate,
-                    data.clip_point, data.clip_normal);
+    _renderer.world(
+        data.orientation * inv_orientation * translate, data.clip_planes);
     _renderer.draw(_player.get_mesh(), stencil_ref, VALUE_BITS);
   }
 }

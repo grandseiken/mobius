@@ -3,8 +3,8 @@ layout(location = 0) in vec3 model;
 uniform mat4 world_transform;
 uniform mat4 vp_transform;
 
-uniform vec3 clip_point;
-uniform vec3 clip_normal;
+uniform vec3 clip_points[8];
+uniform vec3 clip_normals[8];
 
 void main()
 {
@@ -12,6 +12,8 @@ void main()
   vec4 clip = vp_transform * world;
   gl_Position = clip;
 
-  // Custom clipping plane.
-  gl_ClipDistance[0] = dot(clip_normal, world.xyz - clip_point);
+  // Custom clipping planes.
+  for (int i = 0; i < 8; ++i) {
+    gl_ClipDistance[i] = dot(clip_normals[i], world.xyz - clip_points[i]);
+  }
 }

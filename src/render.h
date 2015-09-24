@@ -5,7 +5,7 @@
 #include <glm/vec3.hpp>
 #include <glm/mat3x3.hpp>
 #include <glm/mat4x4.hpp>
-#include <array>
+#include <vector>
 #include <cstdint>
 
 class Mesh;
@@ -15,13 +15,14 @@ public:
   Renderer();
   ~Renderer();
 
+  typedef std::pair<glm::vec3, glm::vec3> plane;
   void resize(const glm::ivec2& dimensions);
   void perspective(float fov, float z_near, float z_far);
   void camera(const glm::vec3& eye, const glm::vec3& target,
               const glm::vec3& up);
   void world(const glm::mat4& world_transform);
   void world(const glm::mat4& world_transform,
-             const glm::vec3& clip_point, const glm::vec3& clip_normal);
+             const std::vector<plane>& clip_planes);
   void light(const glm::vec3& source, float intensity);
 
   void clear() const;
@@ -83,8 +84,7 @@ private:
   glm::mat4 _world_transform;
 
   // For custom clipping.
-  glm::vec3 _clip_point;
-  glm::vec3 _clip_normal;
+  std::vector<plane> _clip_planes;
 
   mutable glm::mat4 _vp_transform;
   mutable glm::mat3 _normal_transform;

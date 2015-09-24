@@ -25,9 +25,15 @@ public:
 
   void update(const ControlData& controls,
               const std::vector<Object>& environment);
-  glm::vec3 get_position() const;
-  glm::vec3 get_head_position() const;
-  glm::vec3 get_look_direction() const;
+
+  const glm::vec3& get_position() const;
+  const glm::vec3& get_head_position() const;
+  const glm::vec3& get_look_direction() const;
+
+  glm::vec3 get_side_direction() const;
+  glm::vec3 get_up_direction() const;
+  glm::vec3 get_forward_direction() const;
+
   float get_fov() const;
   float get_z_near() const;
   float get_z_far() const;

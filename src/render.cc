@@ -283,16 +283,15 @@ void Renderer::camera(const glm::vec3& eye, const glm::vec3& target,
 
 void Renderer::world(const glm::mat4& world_transform)
 {
-  world(world_transform, {}, {});
+  world(world_transform, {});
 }
 
 void Renderer::world(const glm::mat4& world_transform,
-                     const glm::vec3& clip_point, const glm::vec3& clip_normal)
+                     const std::vector<plane>& clip_planes)
 {
   _world_transform = world_transform;
   _normal_transform_dirty = true;
-  _clip_point = clip_point;
-  _clip_normal = clip_normal;
+  _clip_planes = clip_planes;
 }
 
 void Renderer::light(const glm::vec3& source, float intensity)
@@ -453,17 +452,27 @@ void Renderer::set_mvp_uniforms(uint32_t program) const
       glGetUniformLocation(program, "vp_transform"),
       1, GL_FALSE, glm::value_ptr(_vp_transform));
 
-  if (_clip_normal != glm::vec3{}) {
-    glEnable(GL_CLIP_DISTANCE0);
-    glUniform3fv(
-        glGetUniformLocation(program, "clip_point"),
-        1, glm::value_ptr(_clip_point));
-    glUniform3fv(
-        glGetUniformLocation(program, "clip_normal"),
-        1, glm::value_ptr(_clip_normal));
-  } else {
-    glDisable(GL_CLIP_DISTANCE0);
+  static const uint32_t max_clip_distances = 8;
+  for (uint32_t i = 0; i < max_clip_distances; ++i) {
+    if (i < _clip_planes.size()) {
+      glEnable(i + GL_CLIP_DISTANCE0);
+    } else {
+      glDisable(i + GL_CLIP_DISTANCE0);
+    }
   }
+
+  std::vector<glm::vec3> points;
+  std::vector<glm::vec3> normals;
+  for (const auto& pair : _clip_planes) {
+    points.push_back(pair.first);
+    normals.push_back(pair.second);
+  }
+  glUniform3fv(
+      glGetUniformLocation(program, "clip_points"),
+      points.size(), glm::value_ptr(*points.data()));
+  glUniform3fv(
+      glGetUniformLocation(program, "clip_normals"),
+      normals.size(), glm::value_ptr(*normals.data()));
 }
 
 void Renderer::set_simplex_uniforms(uint32_t program) const
