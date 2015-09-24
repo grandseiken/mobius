@@ -74,7 +74,8 @@ namespace {
       glm::vec3 vt{transform * glm::vec4{v, 1}};
       auto depth = glm::dot(vt - eye, dir);
       auto projection = vt - depth * dir;
-      glm::vec2 coords{glm::dot(projection, side), glm::dot(projection, up)};
+      glm::vec2 coords{glm::dot(projection - eye, side),
+                       glm::dot(projection - eye, up)};
       coords /= depth;
 
       // Just take the 2D bounding box in plane coordinates. This is not
@@ -102,11 +103,12 @@ namespace {
     auto rn = glm::normalize(glm::cross(tr - eye, br - eye));
 
     std::vector<World::plane> result;
-    // TODO: these seem right, but definitely aren't.
-    /*result.emplace_back(bl, -bn);
-    result.emplace_back(tr, -tn);
-    result.emplace_back(tl, -ln);
-    result.emplace_back(br, -rn);*/
+    // TODO: these seem right, but still aren't - they're somehow much too
+    // small? Something to do with depth or perspective.
+    /*result.emplace_back(bl, bn);
+    result.emplace_back(tr, tn);
+    result.emplace_back(tl, ln);
+    result.emplace_back(br, rn);*/
 
     // We also have to clip behind the portal so that we don't see overlapping
     // geometry hanging about.
