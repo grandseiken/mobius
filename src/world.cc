@@ -25,6 +25,24 @@ namespace {
   }
 
   std::vector<World::plane>
+  calculate_bounding_planes(const glm::vec3& eye,
+                            const glm::vec3& bl, const glm::vec3& tl,
+                            const glm::vec3& br, const glm::vec3& tr)
+  {
+    auto bn = glm::normalize(glm::cross(br - eye, bl - eye));
+    auto tn = glm::normalize(glm::cross(tl - eye, tr - eye));
+    auto ln = glm::normalize(glm::cross(bl - eye, tl - eye));
+    auto rn = glm::normalize(glm::cross(tr - eye, br - eye));
+
+    std::vector<World::plane> result;
+    result.emplace_back(bl, bn);
+    result.emplace_back(tr, tn);
+    result.emplace_back(tl, ln);
+    result.emplace_back(br, rn);
+    return result;
+  }
+
+  std::vector<World::plane>
   calculate_view_frustum(const Player& player, float aspect_ratio)
   {
     const auto& eye = player.get_head_position();
@@ -34,21 +52,12 @@ namespace {
     auto h = f * aspect_ratio * player.get_side_direction();
     auto v = f * player.get_up_direction();
 
-    auto b = eye + dir - v;
-    auto t = eye + dir + v;
-    auto l = eye + dir - h;
-    auto r = eye + dir + h;
+    auto bl = eye + dir - v - h;
+    auto tl = eye + dir + v - h;
+    auto br = eye + dir - v + h;
+    auto tr = eye + dir + v + h;
 
-    auto bn = glm::normalize(glm::cross(b - eye, b - h - eye));
-    auto tn = glm::normalize(glm::cross(t - eye, t + h - eye));
-    auto ln = glm::normalize(glm::cross(l - eye, t - h - eye));
-    auto rn = glm::normalize(glm::cross(r - eye, b + h - eye));
-
-    std::vector<World::plane> result;
-    result.emplace_back(b, bn);
-    result.emplace_back(t, tn);
-    result.emplace_back(l, ln);
-    result.emplace_back(r, rn);
+    auto result = calculate_bounding_planes(eye, bl, tl, br, tr);
     result.emplace_back(eye + player.get_z_near() * dir, dir);
     result.emplace_back(eye + player.get_z_far() * dir, -dir);
     return result;
@@ -73,9 +82,10 @@ namespace {
     for (const auto& v : portal.portal_mesh->physical_vertices()) {
       glm::vec3 vt{transform * glm::vec4{v, 1}};
       auto depth = glm::dot(vt - eye, dir);
-      auto projection = vt - depth * dir;
-      glm::vec2 coords{glm::dot(projection - eye, side),
-                       glm::dot(projection - eye, up)};
+      auto distance = glm::dot(vt - eye - dir, dir);
+      auto projection = vt - distance * dir;
+      glm::vec2 coords{glm::dot(projection - eye - dir, side),
+                       glm::dot(projection - eye - dir, up)};
       coords /= depth;
 
       // Just take the 2D bounding box in plane coordinates. This is not
@@ -97,18 +107,10 @@ namespace {
     auto tl = eye + min.x * side + max.y * up;
     auto tr = eye + max.x * side + max.y * up;
 
-    auto bn = glm::normalize(glm::cross(br - eye, bl - eye));
-    auto tn = glm::normalize(glm::cross(tl - eye, tr - eye));
-    auto ln = glm::normalize(glm::cross(bl - eye, tl - eye));
-    auto rn = glm::normalize(glm::cross(tr - eye, br - eye));
-
-    std::vector<World::plane> result;
     // TODO: these seem right, but still aren't - they're somehow much too
     // small? Something to do with depth or perspective.
-    /*result.emplace_back(bl, bn);
-    result.emplace_back(tr, tn);
-    result.emplace_back(tl, ln);
-    result.emplace_back(br, rn);*/
+    auto result = /*calculate_bounding_planes(eye, bl, tl, br, tr)*/
+        std::vector<World::plane>{};
 
     // We also have to clip behind the portal so that we don't see overlapping
     // geometry hanging about.
