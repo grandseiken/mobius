@@ -63,7 +63,7 @@ private:
       uint32_t iteration, const Chunk* chunk,
       const world_data& data, uint32_t stencil_ref) const;
 
-  static const uint32_t MAX_ITERATIONS = 4;
+  static const uint32_t MAX_ITERATIONS = 8;
 
   Renderer& _renderer;
   std::unordered_map<std::string, Chunk> _chunks;
