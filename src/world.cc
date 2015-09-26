@@ -64,11 +64,13 @@ namespace {
   }
 
   std::vector<World::plane>
-  calculate_bounding_frustum(const Player& player,
+  calculate_bounding_frustum(const Player& player, float aspect_ratio,
                              const glm::mat4& transform, const Portal& portal)
   {
     const auto& eye = player.get_head_position();
     const auto& dir = player.get_look_direction();
+    auto max_y = std::tan(player.get_fov() / 2);
+    auto max_x = aspect_ratio * max_y;
 
     auto side = player.get_side_direction();
     auto up = player.get_up_direction();
@@ -86,7 +88,12 @@ namespace {
       auto projection = vt - distance * dir;
       glm::vec2 coords{glm::dot(projection - eye - dir, side),
                        glm::dot(projection - eye - dir, up)};
-      coords /= depth;
+      if (depth > 0) {
+        coords /= depth;
+      } else {
+        coords.x = coords.x > 0 ? max_x : -max_x;
+        coords.y = coords.y > 0 ? max_y : -max_y;
+      }
 
       // Just take the 2D bounding box in plane coordinates. This is not
       // precise; a better way would be to reduce to a convex hull and from
@@ -102,16 +109,16 @@ namespace {
       first = false;
     }
 
-    auto bl = eye + min.x * side + min.y * up;
-    auto br = eye + max.x * side + min.y * up;
-    auto tl = eye + min.x * side + max.y * up;
-    auto tr = eye + max.x * side + max.y * up;
+    min = glm::min(min, {-max_x, -max_y});
+    max = glm::max(max, {max_x, max_y});
 
-    // TODO: these seem right, but still aren't - they're somehow much too
-    // small? Something to do with depth or perspective.
-    auto result = /*calculate_bounding_planes(eye, bl, tl, br, tr)*/
-        std::vector<World::plane>{};
+    // TODO: better, but somehow not strict enough.
+    auto bl = eye + dir + min.x * side + min.y * up;
+    auto br = eye + dir + max.x * side + min.y * up;
+    auto tl = eye + dir + min.x * side + max.y * up;
+    auto tr = eye + dir + max.x * side + max.y * up;
 
+    auto result = calculate_bounding_planes(eye, bl, tl, br, tr);
     // We also have to clip behind the portal so that we don't see overlapping
     // geometry hanging about.
     auto normal_transform = glm::transpose(glm::inverse(glm::mat3{transform}));
@@ -288,6 +295,8 @@ void World::render() const
   std::vector<chunk_entry> buffer_b;
   buffer_a.push_back({&it->second, nullptr, 0, {_orientation, {}}, {{}, {}}});
 
+  // TODO: could rewrite to build the scene graph in one step, and render it in
+  // another.
   for (uint32_t i = 0; i < MAX_ITERATIONS; ++i) {
     render_iteration(i, i % 2 ? buffer_b : buffer_a,
                         i % 2 ? buffer_a : buffer_b);
@@ -354,11 +363,11 @@ void World::render_iteration(
       auto stencil = 1 + iteration_stencil++ % (VALUE_BITS - 1);
 
       auto orientation = entry.data.orientation * portal_matrix(portal);
-      write_buffer.push_back({
-          &jt->second, &portal, stencil,
-          {orientation,
-           calculate_bounding_frustum(_player, entry.data.orientation, portal)},
-          entry.data});
+      auto portal_frustum = calculate_bounding_frustum(
+          _player, _renderer.get_aspect_ratio(),
+          entry.data.orientation, portal);
+      write_buffer.push_back({&jt->second, &portal, stencil,
+                              {orientation, portal_frustum}, entry.data});
 
       auto portal_stencil_ref = combine_mask(true, entry.stencil);
       _renderer.stencil(
