@@ -134,6 +134,9 @@ Mesh::Mesh(const mobius::proto::mesh& mesh)
                         reinterpret_cast<void*>(sizeof(float) * 6));
   glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, _ibo);
   glBindVertexArray(0);
+
+  glBindBuffer(GL_ARRAY_BUFFER, 0);
+  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 }
 
 Mesh::~Mesh()

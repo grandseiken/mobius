@@ -49,13 +49,13 @@ World::World(const std::string& path, Renderer& renderer)
       auto& portal = *chunk.portals.rbegin();
       portal.chunk_name = portal_proto.chunk_name(),
       portal.portal_id = portal_proto.portal_id();
-      portal.portal_mesh.reset(new Mesh{portal_proto.portal_mesh()}),
+      portal.portal_mesh.reset(new Mesh{portal_proto.portal_mesh()});
 
       portal.local.origin = load_vec3(portal_proto.local().origin());
-      portal.local.normal = load_vec3(portal_proto.local().normal()),
+      portal.local.normal = load_vec3(portal_proto.local().normal());
       portal.local.up = load_vec3(portal_proto.local().up());
 
-      portal.remote.origin = load_vec3(portal_proto.remote().origin()),
+      portal.remote.origin = load_vec3(portal_proto.remote().origin());
       portal.remote.normal = load_vec3(portal_proto.remote().normal());
       portal.remote.up = load_vec3(portal_proto.remote().up());
     }
@@ -116,7 +116,7 @@ void World::update(const ControlData& controls)
   }
 }
 
-void World::render() const
+void World::render(RenderMetrics& metrics) const
 {
   auto it = _chunks.find(_active_chunk);
   if (it == _chunks.end()) {
@@ -131,6 +131,10 @@ void World::render() const
   _renderer.light(head, 128.f);
   _renderer.clear();
 
+  metrics.chunks = 0;
+  metrics.depth = 1;
+  metrics.breadth = 1;
+
   std::vector<chunk_entry> buffer_a;
   std::vector<chunk_entry> buffer_b;
   buffer_a.push_back({&it->second, nullptr, 0, {_orientation, {}}, {{}, {}}});
@@ -138,15 +142,15 @@ void World::render() const
   // TODO: could rewrite to build the scene graph in one step, and render it in
   // another.
   for (uint32_t i = 0; i < MAX_ITERATIONS; ++i) {
-    render_iteration(i, i % 2 ? buffer_b : buffer_a,
-                        i % 2 ? buffer_a : buffer_b);
+    render_iteration(i, metrics, i % 2 ? buffer_b : buffer_a,
+                                 i % 2 ? buffer_a : buffer_b);
   }
   _renderer.grain(1. / 32);
   _renderer.render();
 }
 
 void World::render_iteration(
-    uint32_t iteration,
+    uint32_t iteration, RenderMetrics& metrics,
     const std::vector<chunk_entry>& read_buffer,
     std::vector<chunk_entry>& write_buffer) const
 {
@@ -154,6 +158,7 @@ void World::render_iteration(
   if (read_buffer.empty()) {
     return;
   }
+  metrics.depth = std::max(metrics.depth, 1 + iteration);
 
   bool last_iteration = iteration + 1 >= MAX_ITERATIONS;
   uint32_t iteration_stencil = 0;
@@ -180,6 +185,7 @@ void World::render_iteration(
       visibility_clip_planes.push_back(plane);
     }
 
+    ++metrics.chunks;
     // Establish depth buffer for this chunk.
     uint32_t stencil_ref = combine_mask(false, entry.stencil);
     _renderer.world(entry.data.orientation, entry.data.clip_planes);
@@ -204,6 +210,7 @@ void World::render_iteration(
       }
       // TODO: this should really warn when we reuse stencil bits.
       auto stencil = 1 + iteration_stencil++ % (VALUE_BITS - 1);
+      metrics.breadth = std::max(metrics.breadth, iteration_stencil);
 
       auto orientation = entry.data.orientation * portal_matrix(portal);
       auto portal_frustum = calculate_bounding_frustum(

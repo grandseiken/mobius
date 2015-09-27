@@ -197,6 +197,9 @@ Renderer::Renderer()
   glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, 0, 0);
   glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, _quad_ibo);
   glBindVertexArray(0);
+
+  glBindBuffer(GL_ARRAY_BUFFER, 0);
+  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 }
 
 Renderer::~Renderer()
@@ -264,6 +267,8 @@ void Renderer::resize(const glm::ivec2& dimensions)
   if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
     std::cerr << "Framebuffer is not complete\n";
   }
+
+  glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 
 void Renderer::perspective(float fov, float z_near, float z_far)
@@ -318,20 +323,25 @@ void Renderer::clear() const
   glClearDepth(1);
   glClearStencil(0x00);
   glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
+  glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
 }
 
 void Renderer::clear_depth() const
 {
+  glBindFramebuffer(GL_DRAW_FRAMEBUFFER, _fbo);
   glDepthMask(GL_TRUE);
   glClearDepth(1);
   glClear(GL_DEPTH_BUFFER_BIT);
+  glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
 }
 
 void Renderer::clear_stencil(uint32_t stencil_mask) const
 {
+  glBindFramebuffer(GL_DRAW_FRAMEBUFFER, _fbo);
   glStencilMask(stencil_mask);
   glClearStencil(0x00);
   glClear(GL_STENCIL_BUFFER_BIT);
+  glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
 }
 
 void Renderer::stencil(
@@ -346,9 +356,12 @@ void Renderer::stencil(
   glUseProgram(_world_program);
   set_mvp_uniforms(_world_program);
 
+  glBindFramebuffer(GL_DRAW_FRAMEBUFFER, _fbo);
   glBindVertexArray(mesh.vao());
   glDrawElements(GL_TRIANGLES, mesh.vertex_count(), GL_UNSIGNED_SHORT, 0);
+  glBindVertexArray(0);
   glUseProgram(0);
+  glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
 }
 
 void Renderer::depth(const Mesh& mesh, uint32_t stencil_ref,
@@ -362,9 +375,12 @@ void Renderer::depth(const Mesh& mesh, uint32_t stencil_ref,
   glUseProgram(_world_program);
   set_mvp_uniforms(_world_program);
 
+  glBindFramebuffer(GL_DRAW_FRAMEBUFFER, _fbo);
   glBindVertexArray(mesh.vao());
   glDrawElements(GL_TRIANGLES, mesh.vertex_count(), GL_UNSIGNED_SHORT, 0);
+  glBindVertexArray(0);
   glUseProgram(0);
+  glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
 }
 
 void Renderer::draw(const Mesh& mesh, uint32_t stencil_ref,
@@ -388,9 +404,12 @@ void Renderer::draw(const Mesh& mesh, uint32_t stencil_ref,
   glUniform1f(
       glGetUniformLocation(_draw_program, "light_intensity"), _light.intensity);
 
+  glBindFramebuffer(GL_DRAW_FRAMEBUFFER, _fbo);
   glBindVertexArray(mesh.vao());
   glDrawElements(GL_TRIANGLES, mesh.vertex_count(), GL_UNSIGNED_SHORT, 0);
   glUseProgram(0);
+  glBindVertexArray(0);
+  glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
 }
 
 void Renderer::grain(float amount) const
@@ -404,10 +423,13 @@ void Renderer::grain(float amount) const
   glUniform1f(glGetUniformLocation(_grain_program, "frame"), _frame);
   set_simplex_uniforms(_grain_program);
 
+  glBindFramebuffer(GL_DRAW_FRAMEBUFFER, _fbo);
   glBindVertexArray(_grain_vao);
   glDrawElements(GL_TRIANGLES, sizeof(quad_indices) / sizeof(quad_indices[0]),
                  GL_UNSIGNED_SHORT, 0);
+  glBindVertexArray(0);
   glUseProgram(0);
+  glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
 }
 
 void Renderer::render() const
@@ -418,6 +440,7 @@ void Renderer::render() const
   glBlitFramebuffer(0, 0, _dimensions.x, _dimensions.y,
                     0, 0, _dimensions.x, _dimensions.y,
                     GL_COLOR_BUFFER_BIT, GL_NEAREST);
+  glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
 }
 
 float Renderer::get_aspect_ratio() const

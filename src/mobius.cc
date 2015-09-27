@@ -1,6 +1,8 @@
-#include <SFML/Window.hpp>
 #include "render.h"
 #include "world.h"
+#include <SFML/Graphics.hpp>
+#include <SFML/Window.hpp>
+#include <sstream>
 
 glm::ivec2 window_size(const sf::Window& window)
 {
@@ -29,6 +31,7 @@ int main(int argc, char** argv)
     world_path = argv[1];
   }
 
+  // TODO: this isn't used, since it interferes with the OpenGL version somehow.
   sf::ContextSettings settings;
   settings.depthBits = 0;
   settings.stencilBits = 0;
@@ -37,11 +40,21 @@ int main(int argc, char** argv)
   settings.minorVersion = 2;
   settings.attributeFlags = sf::ContextSettings::Core;
 
-  sf::Window window{sf::VideoMode::getDesktopMode(), "MOBIUS", sf::Style::None};
+  sf::RenderWindow window{
+      sf::VideoMode::getDesktopMode(), "MOBIUS", sf::Style::None};
+
   window.setVerticalSyncEnabled(true);
   Renderer renderer;
   renderer.resize(window_size(window));
   World world{world_path, renderer};
+
+  sf::Clock clock;
+  uint64_t frame_time_us = 1;
+  sf::Font font;
+  font.loadFromFile("assets/droidiga.otf");
+  sf::Text debug_text{"", font, 24};
+  debug_text.setColor(sf::Color::Black);
+  debug_text.setPosition(sf::Vector2f{8, 8});
 
   bool focus = true;
   ControlData control_data;
@@ -54,7 +67,10 @@ int main(int argc, char** argv)
            event.key.code == sf::Keyboard::Escape)) {
         window.close();
       } else if (event.type == sf::Event::Resized) {
-        renderer.resize(window_size(window));
+        auto size = window_size(window);
+        renderer.resize(size);
+        window.setView(sf::View{sf::Vector2f(size.x / 2, size.y / 2),
+                                sf::Vector2f(size.x, size.y)});
         reset_mouse_position(window);
       } else if (event.type == sf::Event::GainedFocus) {
         focus = true;
@@ -95,9 +111,22 @@ int main(int argc, char** argv)
       control_data.mouse_move = glm::vec2{};
     }
 
+    RenderMetrics metrics;
     world.update(control_data);
-    world.render();
+    world.render(metrics);
+
+    std::stringstream ss;
+    ss << "Chunks: " << metrics.chunks <<
+        "\nDepth: " << metrics.depth <<
+        "\nBreadth: " << metrics.breadth <<
+        "\nFPS: " << uint32_t(1000000.f / frame_time_us);
+
+    debug_text.setString(ss.str());
+    window.resetGLStates();
+    window.draw(debug_text);
+    frame_time_us = clock.getElapsedTime().asMicroseconds();
     window.display();
+    clock.restart();
   }
   return 0;
 }

@@ -24,7 +24,7 @@ LFLAGS=\
   $(SFML_DIR)/lib/libsfml-graphics-s.a \
   $(SFML_DIR)/lib/libsfml-window-s.a \
   $(SFML_DIR)/lib/libsfml-system-s.a \
-  -lGLEW -lGL -lopenal -lsndfile \
+  -lGLEW -lGL -lopenal -lsndfile -lfreetype -ljpeg \
   -lX11-xcb -lX11 -lxcb-image -lxcb-randr -lxcb -ludev -lpthread
 
 # File listings.

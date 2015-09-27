@@ -23,7 +23,6 @@ void Player::update(const ControlData& controls,
   _angle += (1.f / 2048) * controls.mouse_move;
   _angle.y = glm::clamp(_angle.y, -glm::pi<float>() / 2 + epsilon,
                                    glm::pi<float>() / 2 - epsilon);
-
   _look_dir = glm::vec3{
       cos(_angle.y) * sin(-_angle.x),
       sin(_angle.y),

@@ -30,13 +30,19 @@ struct Chunk {
   std::vector<Portal> portals;
 };
 
+struct RenderMetrics {
+  uint32_t chunks;
+  uint32_t depth;
+  uint32_t breadth;
+};
+
 class Renderer;
 class World {
 public:
   World(const std::string& path, Renderer& renderer);
 
   void update(const ControlData& controls);
-  void render() const;
+  void render(RenderMetrics& metrics) const;
 
 private:
   typedef std::pair<glm::vec3, glm::vec3> plane;
@@ -55,7 +61,7 @@ private:
   };
 
   void render_iteration(
-      uint32_t iteration,
+      uint32_t iteration, RenderMetrics& metrics,
       const std::vector<chunk_entry>& read_buffer,
       std::vector<chunk_entry>& write_buffer) const;
 
