@@ -62,13 +62,14 @@ calculate_bounding_frustum(const Player& player, float aspect_ratio,
   glm::vec2 min;
   glm::vec2 max;
 
-  // Perspective-project each point onto plane. This is basically
-  // reimplementing the look-at matrix, right?
-  for (const auto& v : portal.portal_mesh->physical_vertices()) {
-    glm::vec3 vt{transform * glm::vec4{v, 1}};
-    auto depth = glm::dot(vt - eye, dir);
-    auto distance = glm::dot(vt - eye - dir, dir);
-    auto projection = vt - distance * dir;
+  auto handle_vertex = [&](const glm::vec3& v)
+  {
+    // Perspective-project each point onto plane. This is basically
+    // reimplementing the look-at matrix, right?
+    auto depth = glm::dot(v - eye, dir);
+    auto distance = glm::dot(v - eye - dir, dir);
+    auto projection = v - distance * dir;
+
     glm::vec2 coords{glm::dot(projection - eye - dir, side),
                      glm::dot(projection - eye - dir, up)};
     if (depth > 0) {
@@ -90,6 +91,52 @@ calculate_bounding_frustum(const Player& player, float aspect_ratio,
       max = glm::max(max, coords);
     }
     first = false;
+  };
+
+  for (const auto& t : portal.portal_mesh->physical_faces()) {
+    // Clip the triangle against the player plane to avoid complications.
+    glm::vec3 ta{transform * glm::vec4{t.a, 1}};
+    glm::vec3 tb{transform * glm::vec4{t.b, 1}};
+    glm::vec3 tc{transform * glm::vec4{t.c, 1}};
+
+    auto da = glm::dot(ta - eye, dir);
+    auto db = glm::dot(tb - eye, dir);
+    auto dc = glm::dot(tc - eye, dir);
+
+    if (da < 0 && db < 0 && dc < 0) {
+      continue;
+    } else if (da < 0 && db < 0) {
+      handle_vertex(tc + dc / (dc - da) * (ta - tc));
+      handle_vertex(tc + dc / (dc - db) * (tb - tc));
+      handle_vertex(tc);
+    } else if (db < 0 && dc < 0) {
+      handle_vertex(ta + da / (da - db) * (tb - ta));
+      handle_vertex(ta + da / (da - dc) * (tc - ta));
+      handle_vertex(ta);
+    } else if (dc < 0 && da < 0) {
+      handle_vertex(tb + db / (db - dc) * (tc - tb));
+      handle_vertex(tb + db / (db - da) * (ta - tb));
+      handle_vertex(tb);
+    } else if (da < 0) {
+      handle_vertex(tb + db / (db - da) * (ta - tb));
+      handle_vertex(tc + dc / (dc - da) * (ta - tc));
+      handle_vertex(tb);
+      handle_vertex(tc);
+    } else if (db < 0) {
+      handle_vertex(tc + dc / (dc - db) * (tb - tc));
+      handle_vertex(ta + da / (da - db) * (tb - ta));
+      handle_vertex(tc);
+      handle_vertex(ta);
+    } else if (dc < 0) {
+      handle_vertex(ta + da / (da - dc) * (tc - ta));
+      handle_vertex(tb + db / (db - dc) * (tc - tb));
+      handle_vertex(ta);
+      handle_vertex(tb);
+    } else {
+      handle_vertex(ta);
+      handle_vertex(tb);
+      handle_vertex(tc);
+    }
   }
 
   min = glm::max(min, {-max_x, -max_y});

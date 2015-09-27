@@ -158,6 +158,9 @@ void World::render_iteration(
   bool last_iteration = iteration + 1 >= MAX_ITERATIONS;
   uint32_t iteration_stencil = 0;
 
+  // For further iterations, these clip planes are mostly redundant - we could
+  // perhaps just use this for the first iteration and only keep the near/far
+  // depth planes after that.
   const auto view_clip_planes =
       calculate_view_frustum(_player, _renderer.get_aspect_ratio());
 
