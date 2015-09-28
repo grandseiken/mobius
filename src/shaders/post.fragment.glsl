@@ -2,11 +2,14 @@
 
 out vec4 output_colour;
 
-uniform float amount;
 uniform float frame;
+uniform vec2 dimensions;
+uniform sampler2D read_framebuffer;
 uniform sampler1D simplex_gradient_lut;
 uniform sampler1D simplex_permutation_lut;
 uniform bool simplex_use_permutation_lut;
+
+const float grain_amount = 1. / 24;
 
 float simplex_layer(vec3 seed, float time, float pow)
 {
@@ -26,6 +29,9 @@ void main()
       simplex_layer(seed, time, 2.) +
       simplex_layer(seed, time, 4.);
   float v = clamp((n + 1.) / 2., 0., 1.);
-  output_colour = vec4(v, v, v, v * amount);
+
+  float source = texture(read_framebuffer, gl_FragCoord.xy / dimensions).x;
+  float value = v * v * grain_amount + (1 - v * grain_amount) * source;
+  output_colour = vec4(value, value, value, 1.);
 }
 

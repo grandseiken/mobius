@@ -114,6 +114,7 @@ int main(int argc, char** argv)
     RenderMetrics metrics;
     world.update(control_data);
     world.render(metrics);
+    renderer.render();
 
     std::stringstream ss;
     ss << "Chunks: " << metrics.chunks <<

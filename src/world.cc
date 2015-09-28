@@ -145,8 +145,6 @@ void World::render(RenderMetrics& metrics) const
     render_iteration(i, metrics, i % 2 ? buffer_b : buffer_a,
                                  i % 2 ? buffer_a : buffer_b);
   }
-  _renderer.grain(1. / 32);
-  _renderer.render();
 }
 
 void World::render_iteration(

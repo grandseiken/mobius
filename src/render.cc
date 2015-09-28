@@ -116,7 +116,7 @@ namespace {
 #include "../gen/shaders/draw.vertex.glsl.h"
 #include "../gen/shaders/draw.fragment.glsl.h"
 #include "../gen/shaders/quad.vertex.glsl.h"
-#include "../gen/shaders/grain.fragment.glsl.h"
+#include "../gen/shaders/post.fragment.glsl.h"
 #include "../gen/shaders/world.vertex.glsl.h"
 #include "../gen/tools/simplex_lut.h"
 
@@ -153,9 +153,9 @@ Renderer::Renderer()
   _draw_program = create_program("main", {
       SHADER(draw_vertex, GL_VERTEX_SHADER),
       SHADER(draw_fragment, GL_FRAGMENT_SHADER)});
-  _grain_program = create_program("grain", {
+  _post_program = create_program("post", {
       SHADER(quad_vertex, GL_VERTEX_SHADER),
-      SHADER(grain_fragment, GL_FRAGMENT_SHADER)});
+      SHADER(post_fragment, GL_FRAGMENT_SHADER)});
   _world_program = create_program("world", {
       SHADER(world_vertex, GL_VERTEX_SHADER)});
 
@@ -189,8 +189,8 @@ Renderer::Renderer()
   glBufferData(GL_ELEMENT_ARRAY_BUFFER,
                sizeof(quad_indices), quad_indices, GL_STATIC_DRAW);
 
-  glGenVertexArrays(1, &_grain_vao);
-  glBindVertexArray(_grain_vao);
+  glGenVertexArrays(1, &_post_vao);
+  glBindVertexArray(_post_vao);
 
   glEnableVertexAttribArray(0);
   glBindBuffer(GL_ARRAY_BUFFER, _quad_vbo);
@@ -209,14 +209,18 @@ Renderer::~Renderer()
     glDeleteTextures(1, &_fbt);
     glDeleteTextures(1, &_fbd);
   }
+  if (_fbo_intermediate) {
+    glDeleteFramebuffers(1, &_fbo_intermediate);
+    glDeleteTextures(1, &_fbt_intermediate);
+  }
   glDeleteProgram(_draw_program);
-  glDeleteProgram(_grain_program);
+  glDeleteProgram(_post_program);
   glDeleteBuffers(1, &_quad_vbo);
   glDeleteBuffers(1, &_quad_ibo);
   glDeleteSamplers(1, &_sampler);
   glDeleteTextures(1, &_simplex_gradient_lut);
   glDeleteTextures(1, &_simplex_permutation_lut);
-  glDeleteVertexArrays(1, &_grain_vao);
+  glDeleteVertexArrays(1, &_post_vao);
 }
 
 void Renderer::resize(const glm::ivec2& dimensions)
@@ -229,6 +233,10 @@ void Renderer::resize(const glm::ivec2& dimensions)
     glDeleteTextures(1, &_fbt);
     glDeleteTextures(1, &_fbd);
   }
+  if (_fbo_intermediate) {
+    glDeleteFramebuffers(1, &_fbo_intermediate);
+    glDeleteTextures(1, &_fbt_intermediate);
+  }
   glGenTextures(1, &_fbt);
   glGenTextures(1, &_fbd);
   glGenFramebuffers(1, &_fbo);
@@ -236,28 +244,48 @@ void Renderer::resize(const glm::ivec2& dimensions)
   auto samples = 0;
   glGetIntegerv(GL_MAX_SAMPLES, &samples);
 
-  auto target = samples > 1 ? GL_TEXTURE_2D_MULTISAMPLE : GL_TEXTURE_2D;
   if (samples > 1) {
-    glBindTexture(target, _fbt);
-    glTexImage2DMultisample(
-        target, samples, GL_RGBA8,
-        _dimensions.x, _dimensions.y, false);
-    glBindTexture(target, _fbd);
-    glTexImage2DMultisample(
-        target, samples, GL_DEPTH24_STENCIL8,
-        _dimensions.x, _dimensions.y, false);
-  } else {
-    glBindTexture(target, _fbt);
+    glGenTextures(1, &_fbt_intermediate);
+    glGenFramebuffers(1, &_fbo_intermediate);
+    glBindTexture(GL_TEXTURE_2D, _fbt_intermediate);
     glTexImage2D(
-        target, 0, GL_RGBA8,
+        GL_TEXTURE_2D, 0, GL_RGBA8,
         _dimensions.x, _dimensions.y, 0,
         GL_RGBA, GL_UNSIGNED_INT_8_8_8_8_REV, nullptr);
-    glBindTexture(target, _fbd);
+    glBindFramebuffer(GL_FRAMEBUFFER, _fbo_intermediate);
+    glFramebufferTexture2D(
+        GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D,
+        _fbt_intermediate, 0);
+
+    if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
+      std::cerr << "Intermediate framebuffer is not complete\n";
+    }
+
+    glBindTexture(GL_TEXTURE_2D_MULTISAMPLE, _fbt);
+    glTexImage2DMultisample(
+        GL_TEXTURE_2D_MULTISAMPLE, samples, GL_RGBA8,
+        _dimensions.x, _dimensions.y, false);
+    glBindTexture(GL_TEXTURE_2D_MULTISAMPLE, _fbd);
+    glTexImage2DMultisample(
+        GL_TEXTURE_2D_MULTISAMPLE, samples, GL_DEPTH24_STENCIL8,
+        _dimensions.x, _dimensions.y, false);
+  } else {
+    _fbo_intermediate = 0;
+    _fbt_intermediate = 0;
+
+    glBindTexture(GL_TEXTURE_2D, _fbt);
     glTexImage2D(
-        target, 0, GL_DEPTH24_STENCIL8,
+        GL_TEXTURE_2D, 0, GL_RGBA8,
+        _dimensions.x, _dimensions.y, 0,
+        GL_RGBA, GL_UNSIGNED_INT_8_8_8_8_REV, nullptr);
+    glBindTexture(GL_TEXTURE_2D, _fbd);
+    glTexImage2D(
+        GL_TEXTURE_2D, 0, GL_DEPTH24_STENCIL8,
         _dimensions.x, _dimensions.y, 0,
         GL_DEPTH_STENCIL, GL_UNSIGNED_INT_24_8, nullptr);
   }
+
+  auto target = samples > 1 ? GL_TEXTURE_2D_MULTISAMPLE : GL_TEXTURE_2D;
   glBindFramebuffer(GL_FRAMEBUFFER, _fbo);
   glFramebufferTexture2D(
       GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, target, _fbt, 0);
@@ -267,7 +295,6 @@ void Renderer::resize(const glm::ivec2& dimensions)
   if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
     std::cerr << "Framebuffer is not complete\n";
   }
-
   glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 
@@ -412,35 +439,43 @@ void Renderer::draw(const Mesh& mesh, uint32_t stencil_ref,
   glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
 }
 
-void Renderer::grain(float amount) const
+void Renderer::render() const
 {
-  render_settings(/* dtest */ false, /* dmask */ false, /* depth_eq */ false,
-                  /* cmask */ true, /* blend */ true);
   stencil_settings(0x00, 0x00, 0x00);
+  render_settings(/* dtest */ false, /* dmask */ false, /* depth_eq */ false,
+                  /* cmask */ true, /* blend */ false);
 
-  glUseProgram(_grain_program);
-  glUniform1f(glGetUniformLocation(_grain_program, "amount"), amount);
-  glUniform1f(glGetUniformLocation(_grain_program, "frame"), _frame);
-  set_simplex_uniforms(_grain_program);
+  if (_fbo_intermediate) {
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, _fbo);
+    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, _fbo_intermediate);
+    glDrawBuffer(GL_BACK);
+    glBlitFramebuffer(0, 0, _dimensions.x, _dimensions.y,
+                      0, 0, _dimensions.x, _dimensions.y,
+                      GL_COLOR_BUFFER_BIT, GL_NEAREST);
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
+  }
 
-  glBindFramebuffer(GL_DRAW_FRAMEBUFFER, _fbo);
-  glBindVertexArray(_grain_vao);
+  glm::vec2 dimensions = _dimensions;
+
+  glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
+  glUseProgram(_post_program);
+  glUniform1f(glGetUniformLocation(_post_program, "frame"), _frame);
+  glUniform2fv(
+      glGetUniformLocation(_post_program, "dimensions"),
+      1, glm::value_ptr(dimensions));
+  set_simplex_uniforms(_post_program);
+
+  glUniform1i(
+      glGetUniformLocation(_post_program, "read_framebuffer"), 2);
+  glActiveTexture(GL_TEXTURE2);
+  glBindTexture(GL_TEXTURE_2D, _fbt_intermediate ? _fbt_intermediate : _fbt);
+  glBindSampler(2, _sampler);
+
+  glBindVertexArray(_post_vao);
   glDrawElements(GL_TRIANGLES, sizeof(quad_indices) / sizeof(quad_indices[0]),
                  GL_UNSIGNED_SHORT, 0);
   glBindVertexArray(0);
   glUseProgram(0);
-  glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
-}
-
-void Renderer::render() const
-{
-  glBindFramebuffer(GL_READ_FRAMEBUFFER, _fbo);
-  glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
-  glDrawBuffer(GL_BACK);
-  glBlitFramebuffer(0, 0, _dimensions.x, _dimensions.y,
-                    0, 0, _dimensions.x, _dimensions.y,
-                    GL_COLOR_BUFFER_BIT, GL_NEAREST);
-  glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
 }
 
 float Renderer::get_aspect_ratio() const
@@ -501,13 +536,15 @@ void Renderer::set_mvp_uniforms(uint32_t program) const
 void Renderer::set_simplex_uniforms(uint32_t program) const
 {
   glUniform1i(
+      glGetUniformLocation(program, "simplex_use_permutation_lut"),
+      uint32_t(_max_texture_size) >= ARRAY_LENGTH(gen_simplex_permutation_lut));
+
+  glUniform1i(
       glGetUniformLocation(program, "simplex_gradient_lut"), 0);
   glActiveTexture(GL_TEXTURE0);
   glBindTexture(GL_TEXTURE_1D, _simplex_gradient_lut);
   glBindSampler(0, _sampler);
-  glUniform1i(
-      glGetUniformLocation(program, "simplex_use_permutation_lut"),
-      uint32_t(_max_texture_size) >= ARRAY_LENGTH(gen_simplex_permutation_lut));
+
   glUniform1i(
       glGetUniformLocation(program, "simplex_permutation_lut"), 1);
   glActiveTexture(GL_TEXTURE1);

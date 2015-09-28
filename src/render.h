@@ -35,7 +35,6 @@ public:
                                uint32_t stencil_mask) const;
   void draw(const Mesh& mesh, uint32_t stencil_ref,
                               uint32_t stencil_mask) const;
-  void grain(float amount) const;
   void render() const;
 
   float get_aspect_ratio() const;
@@ -50,17 +49,19 @@ private:
   uint32_t _fbo = 0;
   uint32_t _fbt = 0;
   uint32_t _fbd = 0;
+  uint32_t _fbo_intermediate = 0;
+  uint32_t _fbt_intermediate = 0;
 
   uint32_t _draw_program = 0;
+  uint32_t _post_program = 0;
   uint32_t _world_program = 0;
-  uint32_t _grain_program = 0;
   uint32_t _simplex_gradient_lut = 0;
   uint32_t _simplex_permutation_lut = 0;
   uint32_t _sampler = 0;
 
   int32_t _max_texture_size = 0;
   mutable uint32_t _frame = 0;
-  uint32_t _grain_vao = 0;
+  uint32_t _post_vao = 0;
   uint32_t _quad_vbo = 0;
   uint32_t _quad_ibo = 0;
 
