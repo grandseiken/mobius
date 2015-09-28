@@ -192,7 +192,8 @@ void World::render_iteration(
     // Renderer the chunk.
     _renderer.draw(*entry.chunk->mesh, stencil_ref, VALUE_BITS);
     // Render the objects in the source chunk, with the clipping and
-    // stencilling of this chunk.
+    // stencilling of this chunk. This is necessary because the depth has
+    // been cleared since the last time we rendered it.
     if (entry.source_chunk) {
       render_objects_in_chunk(
           iteration - 1, entry.source_chunk,
