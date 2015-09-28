@@ -137,7 +137,8 @@ void World::render(RenderMetrics& metrics) const
 
   std::vector<chunk_entry> buffer_a;
   std::vector<chunk_entry> buffer_b;
-  buffer_a.push_back({&it->second, nullptr, 0, {_orientation, {}}, {{}, {}}});
+  buffer_a.push_back(
+      {&it->second, nullptr, nullptr, 0, {_orientation, {}}, {{}, {}}});
 
   // TODO: could rewrite to build the scene graph in one step, and render it in
   // another.
@@ -188,11 +189,17 @@ void World::render_iteration(
     uint32_t stencil_ref = combine_mask(false, entry.stencil);
     _renderer.world(entry.data.orientation, entry.data.clip_planes);
     _renderer.depth(*entry.chunk->mesh, stencil_ref, VALUE_BITS);
-
-    render_objects_in_chunk(iteration, entry.chunk, entry.data, stencil_ref);
     // Renderer the chunk.
-    _renderer.world(entry.data.orientation, entry.data.clip_planes);
     _renderer.draw(*entry.chunk->mesh, stencil_ref, VALUE_BITS);
+    // Render the objects in the source chunk, with the clipping and
+    // stencilling of this chunk.
+    if (entry.source_chunk) {
+      render_objects_in_chunk(
+          iteration - 1, entry.source_chunk,
+          {entry.source_data.orientation, entry.data.clip_planes},
+          entry.stencil);
+    }
+    render_objects_in_chunk(iteration, entry.chunk, entry.data, stencil_ref);
 
     for (const auto& portal : entry.chunk->portals) {
       auto jt = _chunks.find(portal.chunk_name);
@@ -207,17 +214,26 @@ void World::render_iteration(
         continue;
       }
       // TODO: this should really warn when we reuse stencil bits.
-      auto stencil = 1 + iteration_stencil++ % (VALUE_BITS - 1);
+      auto next_stencil = 1 + iteration_stencil++ % (VALUE_BITS - 1);
       metrics.breadth = std::max(metrics.breadth, iteration_stencil);
 
-      auto orientation = entry.data.orientation * portal_matrix(portal);
+      auto next_orientation = entry.data.orientation * portal_matrix(portal);
       auto portal_frustum = calculate_bounding_frustum(
           _player, _renderer.get_aspect_ratio(),
           entry.data.orientation, portal);
-      write_buffer.push_back({&jt->second, &portal, stencil,
-                              {orientation, portal_frustum}, entry.data});
+
+      // Render the objects in the target chunk, with the clipping and
+      // stencilling of the source chunk.
+      render_objects_in_chunk(
+          1 + iteration, &jt->second,
+          {next_orientation, entry.data.clip_planes}, entry.stencil);
+
+      write_buffer.push_back({
+          &jt->second, &portal, entry.chunk, next_stencil,
+          {next_orientation, portal_frustum}, entry.data});
 
       auto portal_stencil_ref = combine_mask(true, entry.stencil);
+      _renderer.world(entry.data.orientation, entry.data.clip_planes);
       _renderer.stencil(
           *portal.portal_mesh, portal_stencil_ref,
           /* read */ VALUE_BITS, /* write */ FLAG_BITS, /* depth_eq */ false);
@@ -251,16 +267,17 @@ void World::render_objects_in_chunk(
 {
   // Since we currently only have a player, "get objects in chunk" is just
   // "get the player in the active_chunk on nonzero iterations".
-  // TODO: isn't right any more, but drawing the objects from the next
-  // iteration in this stencil could result in overlapping spaces. Need to
-  // think it through.
   auto it = _chunks.find(_active_chunk);
   if (it != _chunks.end() && chunk == &it->second && iteration) {
     auto inv_orientation = glm::inverse(_orientation);
     auto translate = glm::translate(glm::mat4{}, _player.get_position());
+    auto transform = data.orientation * inv_orientation * translate;
 
-    _renderer.world(
-        data.orientation * inv_orientation * translate, data.clip_planes);
+    // TODO: for rendering objects from a different chunk than we're rendering
+    // in, we need to do some kind of determination to see if they're inside the
+    // portal area. Otherwise, this could result in artifact objects from
+    // overlapping spaces.
+    _renderer.world(transform, data.clip_planes);
     _renderer.draw(_player.get_mesh(), stencil_ref, VALUE_BITS);
   }
 }

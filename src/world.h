@@ -54,6 +54,7 @@ private:
   struct chunk_entry {
     const Chunk* chunk;
     const Portal* source;
+    const Chunk* source_chunk;
     uint32_t stencil;
 
     world_data data;
@@ -69,7 +70,7 @@ private:
       uint32_t iteration, const Chunk* chunk,
       const world_data& data, uint32_t stencil_ref) const;
 
-  static const uint32_t MAX_ITERATIONS = 8;
+  static const uint32_t MAX_ITERATIONS = 3;
 
   Renderer& _renderer;
   std::unordered_map<std::string, Chunk> _chunks;

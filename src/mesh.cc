@@ -86,8 +86,10 @@ Mesh::Mesh(const mobius::proto::mesh& mesh)
 
   for (size_t i = 0; i < unsigned(mesh.submesh_size()); ++i) {
     const auto& geometry = mesh.geometry(mesh.submesh(i).geometry());
-    for (uint32_t point : geometry.point()) {
-      physical_indices[i].insert(point);
+    if (mesh.submesh(i).flags() & mobius::proto::submesh::PHYSICAL) {
+      for (uint32_t point : geometry.point()) {
+        physical_indices[i].insert(point);
+      }
     }
 
     for (const auto& tri : geometry.tri()) {
