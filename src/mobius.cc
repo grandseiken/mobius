@@ -31,17 +31,17 @@ int main(int argc, char** argv)
     world_path = argv[1];
   }
 
-  // TODO: this isn't used, since it interferes with the OpenGL version somehow.
+  // We really want to set sf::ContextSettings::Core, but SFML's text rendering
+  // depends on the deprecated parts of OpenGL.
   sf::ContextSettings settings;
   settings.depthBits = 0;
   settings.stencilBits = 0;
-  settings.antialiasingLevel = 1;
+  settings.antialiasingLevel = 0;
   settings.majorVersion = 3;
-  settings.minorVersion = 2;
-  settings.attributeFlags = sf::ContextSettings::Core;
+  settings.minorVersion = 3;
 
   sf::RenderWindow window{
-      sf::VideoMode::getDesktopMode(), "MOBIUS", sf::Style::None};
+      sf::VideoMode::getDesktopMode(), "MOBIUS", sf::Style::None, settings};
 
   window.setVerticalSyncEnabled(true);
   Renderer renderer;
