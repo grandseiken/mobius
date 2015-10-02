@@ -153,6 +153,8 @@ Renderer::Renderer()
   _draw_program = create_program("main", {
       SHADER(draw_vertex, GL_VERTEX_SHADER),
       SHADER(draw_fragment, GL_FRAGMENT_SHADER)});
+  _world_program = create_program("quad", {
+      SHADER(quad_vertex, GL_VERTEX_SHADER)});
   _post_program = create_program("post", {
       SHADER(quad_vertex, GL_VERTEX_SHADER),
       SHADER(post_fragment, GL_FRAGMENT_SHADER)});
@@ -189,8 +191,8 @@ Renderer::Renderer()
   glBufferData(GL_ELEMENT_ARRAY_BUFFER,
                sizeof(quad_indices), quad_indices, GL_STATIC_DRAW);
 
-  glGenVertexArrays(1, &_post_vao);
-  glBindVertexArray(_post_vao);
+  glGenVertexArrays(1, &_quad_vao);
+  glBindVertexArray(_quad_vao);
 
   glEnableVertexAttribArray(0);
   glBindBuffer(GL_ARRAY_BUFFER, _quad_vbo);
@@ -214,13 +216,15 @@ Renderer::~Renderer()
     glDeleteTextures(1, &_fbt_intermediate);
   }
   glDeleteProgram(_draw_program);
+  glDeleteProgram(_quad_program);
   glDeleteProgram(_post_program);
+  glDeleteProgram(_world_program);
   glDeleteBuffers(1, &_quad_vbo);
   glDeleteBuffers(1, &_quad_ibo);
   glDeleteSamplers(1, &_sampler);
   glDeleteTextures(1, &_simplex_gradient_lut);
   glDeleteTextures(1, &_simplex_permutation_lut);
-  glDeleteVertexArrays(1, &_post_vao);
+  glDeleteVertexArrays(1, &_quad_vao);
 }
 
 void Renderer::resize(const glm::ivec2& dimensions)
@@ -353,13 +357,20 @@ void Renderer::clear() const
   glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
 }
 
-void Renderer::clear_depth() const
+void Renderer::clear_depth(uint32_t stencil_ref, uint32_t stencil_mask) const
 {
+  render_settings(/* dtest */ false, /* dmask */ true, /* depth_eq */ false,
+                  /* cmask */ false, /* blend */ false);
+  stencil_settings(stencil_ref, stencil_mask, 0x00);
+
   glBindFramebuffer(GL_DRAW_FRAMEBUFFER, _fbo);
-  glDepthMask(GL_TRUE);
-  glClearDepth(1);
-  glClear(GL_DEPTH_BUFFER_BIT);
-  glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
+  glUseProgram(_post_program);
+
+  glBindVertexArray(_quad_vao);
+  glDrawElements(GL_TRIANGLES, sizeof(quad_indices) / sizeof(quad_indices[0]),
+                 GL_UNSIGNED_SHORT, 0);
+  glBindVertexArray(0);
+  glUseProgram(0);
 }
 
 void Renderer::clear_stencil(uint32_t stencil_mask) const
@@ -471,7 +482,7 @@ void Renderer::render() const
   glBindTexture(GL_TEXTURE_2D, _fbt_intermediate ? _fbt_intermediate : _fbt);
   glBindSampler(2, _sampler);
 
-  glBindVertexArray(_post_vao);
+  glBindVertexArray(_quad_vao);
   glDrawElements(GL_TRIANGLES, sizeof(quad_indices) / sizeof(quad_indices[0]),
                  GL_UNSIGNED_SHORT, 0);
   glBindVertexArray(0);

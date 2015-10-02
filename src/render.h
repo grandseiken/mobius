@@ -26,7 +26,7 @@ public:
   void light(const glm::vec3& source, float intensity);
 
   void clear() const;
-  void clear_depth() const;
+  void clear_depth(uint32_t stencil_ref, uint32_t stencil_mask) const;
   void clear_stencil(uint32_t stencil_mask) const;
 
   void stencil(const Mesh& mesh, uint32_t stencil_ref,
@@ -53,6 +53,7 @@ private:
   uint32_t _fbt_intermediate = 0;
 
   uint32_t _draw_program = 0;
+  uint32_t _quad_program = 0;
   uint32_t _post_program = 0;
   uint32_t _world_program = 0;
   uint32_t _simplex_gradient_lut = 0;
@@ -61,7 +62,7 @@ private:
 
   int32_t _max_texture_size = 0;
   mutable uint32_t _frame = 0;
-  uint32_t _post_vao = 0;
+  uint32_t _quad_vao = 0;
   uint32_t _quad_vbo = 0;
   uint32_t _quad_ibo = 0;
 

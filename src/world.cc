@@ -258,7 +258,7 @@ void World::render_iteration(
         /* read */ FLAG_BITS, /* write */ VALUE_BITS, /* depth_eq */ true);
   }
 
-  _renderer.clear_depth();
+  _renderer.clear_depth(FLAG_BITS, FLAG_BITS);
   _renderer.clear_stencil(FLAG_BITS);
 }
 
