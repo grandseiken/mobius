@@ -9,6 +9,8 @@
 namespace mobius {
   namespace proto {
     class mesh;
+    class submesh;
+    class geometry;
   }
 }
 
@@ -31,7 +33,14 @@ public:
   const std::vector<glm::vec3>& physical_vertices() const;
 
 private:
-  uint32_t _vertex_count = 0;
+  void generate_data(std::vector<float>& visible_vertices,
+                     std::vector<unsigned short>& visible_indices,
+                     std::vector<Triangle>& physical_faces,
+                     std::vector<glm::vec3>& physical_vertices,
+                     const mobius::proto::mesh& mesh,
+                     const mobius::proto::submesh& submesh) const;
+
+  uint32_t _visible_vertex_count = 0;
   uint32_t _vao;
   uint32_t _vbo;
   uint32_t _ibo;
