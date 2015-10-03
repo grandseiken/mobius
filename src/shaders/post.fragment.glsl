@@ -1,3 +1,4 @@
+#include "gamma.glsl.h"
 #include "simplex.glsl.h"
 
 out vec4 output_colour;
@@ -39,7 +40,7 @@ const float hue_start = 340;
 // [0, 50].
 const float hue_shift = 20;
 // [-50, 50].
-const float saturation = -10;
+const float saturation = -12;
 
 const int ramp_size = 16;
 vec3 ramp_colour(int i)
@@ -86,8 +87,12 @@ void main()
       simplex_layer(seed, time, 4.);
   float v = clamp((n + 1.) / 2., 0., 1.);
 
+  const float scale = .85;
   float source = texture(read_framebuffer, gl_FragCoord.xy / dimensions).x;
-  float value = v * v * grain_amount + (1 - v * grain_amount) * source;
+  source = scale * gamma_correct(source);
+
+  float dynamic_grain_amount = grain_amount * (1 - source);
+  float value = v * dynamic_grain_amount + (1 - dynamic_grain_amount) * source;
   output_colour = vec4(ramp_colour(value), 1.);
 }
 
