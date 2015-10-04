@@ -470,6 +470,12 @@ void Renderer::draw(const Mesh& mesh, const Player& player,
   std::vector<float> outline_vertices;
   std::vector<GLushort> outline_indices;
   size_t vertex_count = 0;
+  auto add_outline = [&](const glm::vec3& v)
+  {
+    outline_vertices.push_back(v.x);
+    outline_vertices.push_back(v.y);
+    outline_vertices.push_back(v.z);
+  };
 
   for (const auto& outline : mesh.outlines()) {
     glm::vec3 a{_world_transform * glm::vec4{outline.a, 1.}};
@@ -493,29 +499,24 @@ void Renderer::draw(const Mesh& mesh, const Player& player,
       }
 
       // Project onto view-plane, work out directions.
+      // TODO: there are still small inconsistencies in line thickness.
       auto coords_a = view_plane_coords(eye, dir, a);
       auto coords_b = view_plane_coords(eye, dir, b);
-      auto offset = glm::normalize(
-          glm::vec2{coords_b.y - coords_a.y, coords_a.x - coords_b.x});
+      auto offset = glm::normalize(coords_b - coords_a);
+      glm::vec2 perp{offset.y, -offset.x};
+
+      auto perp3 = perp.x * side + perp.y * up;
       auto offset3 = offset.x * side + offset.y * up;
 
-      auto a0 = a - da * outline_width * offset3;
-      auto a1 = a + da * outline_width * offset3;
-      auto b0 = b - db * outline_width * offset3;
-      auto b1 = b + db * outline_width * offset3;
+      auto a0 = a + da * outline_width * (-offset3 - perp3);
+      auto a1 = a + da * outline_width * (-offset3 + perp3);
+      auto b0 = b + db * outline_width * (offset3 - perp3);
+      auto b1 = b + db * outline_width * (offset3 + perp3);
 
-      outline_vertices.push_back(a0.x);
-      outline_vertices.push_back(a0.y);
-      outline_vertices.push_back(a0.z);
-      outline_vertices.push_back(a1.x);
-      outline_vertices.push_back(a1.y);
-      outline_vertices.push_back(a1.z);
-      outline_vertices.push_back(b0.x);
-      outline_vertices.push_back(b0.y);
-      outline_vertices.push_back(b0.z);
-      outline_vertices.push_back(b1.x);
-      outline_vertices.push_back(b1.y);
-      outline_vertices.push_back(b1.z);
+      add_outline(a0);
+      add_outline(a1);
+      add_outline(b0);
+      add_outline(b1);
 
       outline_indices.push_back(0 + vertex_count);
       outline_indices.push_back(1 + vertex_count);
