@@ -30,8 +30,8 @@ public:
   struct outline_data {
     glm::vec3 a;
     glm::vec3 b;
-    glm::vec3 front_normal;
-    glm::vec3 back_normal;
+    glm::vec3 t_normal;
+    glm::vec3 u_normal;
   };
 
   uint32_t vao() const;

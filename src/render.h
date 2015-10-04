@@ -56,6 +56,7 @@ private:
   uint32_t _quad_program = 0;
   uint32_t _post_program = 0;
   uint32_t _world_program = 0;
+  uint32_t _outline_program = 0;
   uint32_t _simplex_gradient_lut = 0;
   uint32_t _simplex_permutation_lut = 0;
   uint32_t _sampler = 0;
@@ -78,6 +79,7 @@ private:
     float z_near = 0;
     float z_far = 0;
   } _perspective;
+  glm::vec3 _camera_eye;
 
   // For view (world space to camera space) transform.
   glm::mat4 _view_transform;

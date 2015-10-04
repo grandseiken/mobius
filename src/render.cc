@@ -118,6 +118,8 @@ namespace {
 #include "../gen/shaders/quad.vertex.glsl.h"
 #include "../gen/shaders/post.fragment.glsl.h"
 #include "../gen/shaders/world.vertex.glsl.h"
+#include "../gen/shaders/outline.vertex.glsl.h"
+#include "../gen/shaders/outline.fragment.glsl.h"
 #include "../gen/tools/simplex_lut.h"
 
 static const float quad_vertices[] = {
@@ -160,6 +162,9 @@ Renderer::Renderer()
       SHADER(post_fragment, GL_FRAGMENT_SHADER)});
   _world_program = create_program("world", {
       SHADER(world_vertex, GL_VERTEX_SHADER)});
+  _outline_program = create_program("outline", {
+      SHADER(outline_vertex, GL_VERTEX_SHADER),
+      SHADER(outline_fragment, GL_FRAGMENT_SHADER)});
 
   glGenTextures(1, &_simplex_gradient_lut);
   glBindTexture(GL_TEXTURE_1D, _simplex_gradient_lut);
@@ -198,8 +203,8 @@ Renderer::Renderer()
   glBindBuffer(GL_ARRAY_BUFFER, _quad_vbo);
   glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, 0, 0);
   glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, _quad_ibo);
-  glBindVertexArray(0);
 
+  glBindVertexArray(0);
   glBindBuffer(GL_ARRAY_BUFFER, 0);
   glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 }
@@ -219,12 +224,15 @@ Renderer::~Renderer()
   glDeleteProgram(_quad_program);
   glDeleteProgram(_post_program);
   glDeleteProgram(_world_program);
-  glDeleteBuffers(1, &_quad_vbo);
-  glDeleteBuffers(1, &_quad_ibo);
+  glDeleteProgram(_outline_program);
+
   glDeleteSamplers(1, &_sampler);
   glDeleteTextures(1, &_simplex_gradient_lut);
   glDeleteTextures(1, &_simplex_permutation_lut);
+
   glDeleteVertexArrays(1, &_quad_vao);
+  glDeleteBuffers(1, &_quad_vbo);
+  glDeleteBuffers(1, &_quad_ibo);
 }
 
 void Renderer::resize(const glm::ivec2& dimensions)
@@ -315,6 +323,7 @@ void Renderer::camera(const glm::vec3& eye, const glm::vec3& target,
 {
   _view_transform = glm::lookAt(eye, target, up);
   _vp_transform_dirty = true;
+  _camera_eye = eye;
 }
 
 void Renderer::world(const glm::mat4& world_transform)
@@ -447,6 +456,76 @@ void Renderer::draw(const Mesh& mesh, uint32_t stencil_ref,
   glDrawElements(GL_TRIANGLES, mesh.vertex_count(), GL_UNSIGNED_SHORT, 0);
   glUseProgram(0);
   glBindVertexArray(0);
+
+  // TODO: this outline code shouldn't really be here. It could also do
+  // visibility calculations.
+  std::vector<float> outline_vertices;
+  std::vector<GLushort> outline_indices;
+  for (const auto& outline : mesh.outlines()) {
+    glm::vec3 a{_world_transform * glm::vec4{outline.a, 1.}};
+    auto tn = _normal_transform * outline.t_normal;
+    auto un = _normal_transform * outline.u_normal;
+    bool t_front = glm::dot(tn, _camera_eye - a) >= 0;
+    bool u_front = glm::dot(un, _camera_eye - a) >= 0;
+
+    if (t_front != u_front) {
+      outline_vertices.push_back(outline.a.x);
+      outline_vertices.push_back(outline.a.y);
+      outline_vertices.push_back(outline.a.z);
+
+      outline_vertices.push_back(outline.b.x);
+      outline_vertices.push_back(outline.b.y);
+      outline_vertices.push_back(outline.b.z);
+
+      outline_indices.push_back(outline_indices.size());
+      outline_indices.push_back(outline_indices.size());
+    }
+  }
+  if (outline_indices.empty()) {
+    return;
+  }
+
+  uint32_t outline_vbo = 0;
+  uint32_t outline_ibo = 0;
+  uint32_t outline_vao = 0;
+
+  glGenBuffers(1, &outline_vbo);
+  glGenBuffers(1, &outline_ibo);
+  glGenVertexArrays(1, &outline_vao);
+
+  glBindBuffer(GL_ARRAY_BUFFER, outline_vbo);
+  glBufferData(GL_ARRAY_BUFFER, outline_vertices.size() * sizeof(float),
+               outline_vertices.data(), GL_STREAM_DRAW);
+
+  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, outline_ibo);
+  glBufferData(GL_ELEMENT_ARRAY_BUFFER,
+               outline_indices.size() * sizeof(GLushort),
+               outline_indices.data(), GL_STREAM_DRAW);
+
+  glBindVertexArray(outline_vao);
+  glEnableVertexAttribArray(0);
+  glBindBuffer(GL_ARRAY_BUFFER, outline_vbo);
+  glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, 0);
+  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, outline_ibo);
+
+  glUseProgram(_outline_program);
+  set_mvp_uniforms(_outline_program);
+  glUniform3fv(
+      glGetUniformLocation(_outline_program, "light_source"), 1,
+      glm::value_ptr(_light.source));
+  glLineWidth(2);
+
+  glBindVertexArray(outline_vao);
+  glDrawElements(GL_LINES, outline_indices.size() / 2, GL_UNSIGNED_SHORT, 0);
+
+  glDeleteVertexArrays(1, &outline_vao);
+  glDeleteBuffers(1, &outline_vbo);
+  glDeleteBuffers(1, &outline_ibo);
+
+  glUseProgram(0);
+  glBindVertexArray(0);
+  glBindBuffer(GL_ARRAY_BUFFER, 0);
+  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
   glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
 }
 

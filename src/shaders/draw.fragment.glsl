@@ -2,7 +2,6 @@
 #include "simplex.glsl.h"
 
 smooth in vec3 vertex_world;
-flat in vec3 vertex_colour;
 flat in vec3 vertex_normal;
 
 out vec4 output_colour;
@@ -96,7 +95,7 @@ void main()
   // Extremely simple HDR (tone-mapping). Works because we only do one render
   // pass; multiple passes would require either special HDR framebuffers or
   // dynamic aperture based on reading the brightness from the last frame.
-  vec3 lit_colour = intensity * (texture.a + 1.) / 2. * vertex_colour;
+  vec3 lit_colour = vec3(intensity * (texture.a + 1.) / 2.);
   output_colour = vec4(reinhard_tonemap(lit_colour), 1.);
 }
 

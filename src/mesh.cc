@@ -82,12 +82,10 @@ Mesh::Mesh(const mobius::proto::mesh& mesh)
   glEnableVertexAttribArray(2);
 
   glBindBuffer(GL_ARRAY_BUFFER, _vbo);
-  glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 9 * sizeof(float),
+  glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float),
                         reinterpret_cast<void*>(sizeof(float) * 0));
-  glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 9 * sizeof(float),
+  glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float),
                         reinterpret_cast<void*>(sizeof(float) * 3));
-  glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, 9 * sizeof(float),
-                        reinterpret_cast<void*>(sizeof(float) * 6));
   glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, _ibo);
   glBindVertexArray(0);
 
@@ -143,30 +141,29 @@ void Mesh::generate_data(std::vector<float>& visible_vertices,
     visible_vertices.push_back(v.z);
   };
 
-  auto add_visible_vertex_data = [&](
-      const glm::vec3& v, const glm::vec3& normal, const glm::vec3& colour)
+  auto add_visible_vertex_data = [&](const glm::vec3& v, const glm::vec3& n)
   {
     add_visible_data(v);
-    add_visible_data(normal);
-    add_visible_data(colour);
+    add_visible_data(n);
   };
 
   auto add_triangle = [&](const TriIndex& t)
   {
-    const auto& material = submesh.material();
     const auto& flags = submesh.flags();
+    glm::vec3 va{transform * glm::vec4{load_vec3(mesh.vertex(t.a)), 1}};
+    glm::vec3 vb{transform * glm::vec4{load_vec3(mesh.vertex(t.b)), 1}};
+    glm::vec3 vc{transform * glm::vec4{load_vec3(mesh.vertex(t.c)), 1}};
 
-    glm::vec3 va{transform * glm::vec4(load_vec3(mesh.vertex(t.a)), 1.)};
-    glm::vec3 vb{transform * glm::vec4(load_vec3(mesh.vertex(t.b)), 1.)};
-    glm::vec3 vc{transform * glm::vec4(load_vec3(mesh.vertex(t.c)), 1.)};
+    auto normal = glm::cross(vb - va, vc - va);
+    if (normal == glm::vec3{}) {
+      return;
+    }
+    normal = glm::normalize(normal);
 
     if (flags & mobius::proto::submesh::VISIBLE) {
-      auto colour = load_rgb(material.colour());
-      auto normal = glm::normalize(glm::cross(vb - va, vc - va));
-
-      add_visible_vertex_data(va, normal, colour);
-      add_visible_vertex_data(vb, normal, colour);
-      add_visible_vertex_data(vc, normal, colour);
+      add_visible_vertex_data(va, normal);
+      add_visible_vertex_data(vb, normal);
+      add_visible_vertex_data(vc, normal);
 
       visible_indices.push_back(visible_indices.size());
       visible_indices.push_back(visible_indices.size());
@@ -201,14 +198,16 @@ void Mesh::generate_outlines(const mobius::proto::mesh& mesh,
 {
   auto transform = submesh_transform(submesh);
   const auto& geometry = mesh.geometry(submesh.geometry());
+  if (!(submesh.flags() & mobius::proto::submesh::VISIBLE)) {
+    return;
+  }
 
-  auto check = [&](size_t a0, size_t a1, size_t b0, size_t b1,
+  auto check = [&](const glm::vec3& a0, const glm::vec3& a1,
+                   const glm::vec3& b0, const glm::vec3& b1,
                    const glm::vec3& a_normal, const glm::vec3& b_normal)
   {
     if (a0 == b1 && a1 == b0) {
-      glm::vec3 v0{transform * glm::vec4(load_vec3(mesh.vertex(a0)), 1.)};
-      glm::vec3 v1{transform * glm::vec4(load_vec3(mesh.vertex(a1)), 1.)};
-      _outline_data.push_back({v0, v1, a_normal, b_normal});
+      _outline_data.push_back({a0, a1, a_normal, b_normal});
     }
   };
 
@@ -217,26 +216,35 @@ void Mesh::generate_outlines(const mobius::proto::mesh& mesh,
       auto t = geometry_tri(geometry, i);
       auto u = geometry_tri(geometry, j);
 
-      glm::vec3 ta{transform * glm::vec4(load_vec3(mesh.vertex(t.a)), 1.)};
-      glm::vec3 tb{transform * glm::vec4(load_vec3(mesh.vertex(t.b)), 1.)};
-      glm::vec3 tc{transform * glm::vec4(load_vec3(mesh.vertex(t.c)), 1.)};
+      glm::vec3 ta{transform * glm::vec4{load_vec3(mesh.vertex(t.a)), 1}};
+      glm::vec3 tb{transform * glm::vec4{load_vec3(mesh.vertex(t.b)), 1}};
+      glm::vec3 tc{transform * glm::vec4{load_vec3(mesh.vertex(t.c)), 1}};
 
-      glm::vec3 ua{transform * glm::vec4(load_vec3(mesh.vertex(u.a)), 1.)};
-      glm::vec3 ub{transform * glm::vec4(load_vec3(mesh.vertex(u.b)), 1.)};
-      glm::vec3 uc{transform * glm::vec4(load_vec3(mesh.vertex(u.c)), 1.)};
+      glm::vec3 ua{transform * glm::vec4{load_vec3(mesh.vertex(u.a)), 1}};
+      glm::vec3 ub{transform * glm::vec4{load_vec3(mesh.vertex(u.b)), 1}};
+      glm::vec3 uc{transform * glm::vec4{load_vec3(mesh.vertex(u.c)), 1}};
 
-      auto t_normal = glm::normalize(glm::cross(tb - ta, tc - ta));
-      auto u_normal = glm::normalize(glm::cross(ub - ua, uc - ua));
+      auto t_normal = glm::cross(tb - ta, tc - ta);
+      auto u_normal = glm::cross(ub - ua, uc - ua);
+      if (t_normal == glm::vec3{} || u_normal == glm::vec3{}) {
+        continue;
+      }
+      t_normal = glm::normalize(t_normal);
+      u_normal = glm::normalize(u_normal);
+      if (t_normal == u_normal) {
+        continue;
+      }
 
-      check(t.a, t.b, u.a, u.b, t_normal, u_normal);
-      check(t.a, t.b, u.b, u.c, t_normal, u_normal);
-      check(t.a, t.b, u.c, u.a, t_normal, u_normal);
-      check(t.b, t.c, u.a, u.b, t_normal, u_normal);
-      check(t.b, t.c, u.b, u.c, t_normal, u_normal);
-      check(t.b, t.c, u.c, u.a, t_normal, u_normal);
-      check(t.c, t.a, u.a, u.b, t_normal, u_normal);
-      check(t.c, t.a, u.b, u.c, t_normal, u_normal);
-      check(t.c, t.a, u.c, u.a, t_normal, u_normal);
+      // TODO: this needs to somehow skip concave edges.
+      check(ta, tb, ua, ub, t_normal, u_normal);
+      check(ta, tb, ub, uc, t_normal, u_normal);
+      check(ta, tb, uc, ua, t_normal, u_normal);
+      check(tb, tc, ua, ub, t_normal, u_normal);
+      check(tb, tc, ub, uc, t_normal, u_normal);
+      check(tb, tc, uc, ua, t_normal, u_normal);
+      check(tc, ta, ua, ub, t_normal, u_normal);
+      check(tc, ta, ub, uc, t_normal, u_normal);
+      check(tc, ta, uc, ua, t_normal, u_normal);
     }
   }
 }
