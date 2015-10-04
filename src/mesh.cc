@@ -204,9 +204,11 @@ void Mesh::generate_outlines(const mobius::proto::mesh& mesh,
 
   auto check = [&](const glm::vec3& a0, const glm::vec3& a1,
                    const glm::vec3& b0, const glm::vec3& b1,
+                   const glm::vec3& at,
                    const glm::vec3& a_normal, const glm::vec3& b_normal)
   {
-    if (a0 == b1 && a1 == b0) {
+    // Skip concave edges.
+    if (a0 == b1 && a1 == b0 && glm::dot(at - a0, b_normal) < 0) {
       _outline_data.push_back({a0, a1, a_normal, b_normal});
     }
   };
@@ -235,16 +237,15 @@ void Mesh::generate_outlines(const mobius::proto::mesh& mesh,
         continue;
       }
 
-      // TODO: this needs to somehow skip concave edges.
-      check(ta, tb, ua, ub, t_normal, u_normal);
-      check(ta, tb, ub, uc, t_normal, u_normal);
-      check(ta, tb, uc, ua, t_normal, u_normal);
-      check(tb, tc, ua, ub, t_normal, u_normal);
-      check(tb, tc, ub, uc, t_normal, u_normal);
-      check(tb, tc, uc, ua, t_normal, u_normal);
-      check(tc, ta, ua, ub, t_normal, u_normal);
-      check(tc, ta, ub, uc, t_normal, u_normal);
-      check(tc, ta, uc, ua, t_normal, u_normal);
+      check(ta, tb, ua, ub, tc, t_normal, u_normal);
+      check(ta, tb, ub, uc, tc, t_normal, u_normal);
+      check(ta, tb, uc, ua, tc, t_normal, u_normal);
+      check(tb, tc, ua, ub, ta, t_normal, u_normal);
+      check(tb, tc, ub, uc, ta, t_normal, u_normal);
+      check(tb, tc, uc, ua, ta, t_normal, u_normal);
+      check(tc, ta, ua, ub, tb, t_normal, u_normal);
+      check(tc, ta, ub, uc, tb, t_normal, u_normal);
+      check(tc, ta, uc, ua, tb, t_normal, u_normal);
     }
   }
 }
