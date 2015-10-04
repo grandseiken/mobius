@@ -465,7 +465,7 @@ void Renderer::draw(const Mesh& mesh, const Player& player,
   auto side = side_direction(dir);
   auto up = up_direction(dir);
   auto z_near = player.get_z_near();
-  const float outline_width = 4. / _dimensions.y;
+  const float outline_width = 2. / _dimensions.y;
 
   std::vector<float> outline_vertices;
   std::vector<GLushort> outline_indices;
@@ -502,7 +502,7 @@ void Renderer::draw(const Mesh& mesh, const Player& player,
       auto a0 = a - da * outline_width * offset3;
       auto a1 = a + da * outline_width * offset3;
       auto b0 = b - db * outline_width * offset3;
-      auto b1 = b + db * outline_width * offset3 * db;
+      auto b1 = b + db * outline_width * offset3;
 
       outline_vertices.push_back(a0.x);
       outline_vertices.push_back(a0.y);
