@@ -1,4 +1,5 @@
 #include "visibility.h"
+#include "geometry.h"
 #include "player.h"
 #include "world.h"
 #include <glm/gtc/matrix_transform.hpp>
@@ -32,8 +33,8 @@ calculate_view_frustum(const Player& player, float aspect_ratio)
   const auto& dir = player.get_look_direction();
   auto f = std::tan(player.get_fov() / 2);
 
-  auto h = f * aspect_ratio * player.get_side_direction();
-  auto v = f * player.get_up_direction();
+  auto h = f * aspect_ratio * side_direction(dir);
+  auto v = f * up_direction(dir);
 
   auto bl = eye + dir - v - h;
   auto tl = eye + dir + v - h;
@@ -55,8 +56,9 @@ calculate_bounding_frustum(const Player& player, float aspect_ratio,
   auto max_y = std::tan(player.get_fov() / 2);
   auto max_x = aspect_ratio * max_y;
 
-  auto side = player.get_side_direction();
-  auto up = player.get_up_direction();
+  auto side = side_direction(dir);
+  auto up = up_direction(dir);
+  auto z_near = player.get_z_near();
 
   bool first = true;
   glm::vec2 min;
@@ -64,25 +66,11 @@ calculate_bounding_frustum(const Player& player, float aspect_ratio,
 
   auto handle_vertex = [&](const glm::vec3& v)
   {
-    // Perspective-project each point onto plane. This is basically
-    // reimplementing the look-at matrix, right?
-    auto depth = glm::dot(v - eye, dir);
-    auto distance = glm::dot(v - eye - dir, dir);
-    auto projection = v - distance * dir;
-
-    glm::vec2 coords{glm::dot(projection - eye - dir, side),
-                     glm::dot(projection - eye - dir, up)};
-    if (depth > 0) {
-      coords /= depth;
-    } else {
-      coords.x = coords.x > 0 ? max_x : -max_x;
-      coords.y = coords.y > 0 ? max_y : -max_y;
-    }
-
     // Just take the 2D bounding box in plane coordinates. This is not
     // precise; a better way would be to reduce to a convex hull and from
     // there to limited number of bounding planes, or to somehow consider many
     // possible coordinate systems on the 2D plane and pick the best fit.
+    auto coords = view_plane_coords(eye, dir, v);
     if (first) {
       min = coords;
       max = coords;
@@ -99,9 +87,9 @@ calculate_bounding_frustum(const Player& player, float aspect_ratio,
     glm::vec3 tb{transform * glm::vec4{t.b, 1}};
     glm::vec3 tc{transform * glm::vec4{t.c, 1}};
 
-    auto da = glm::dot(ta - eye, dir);
-    auto db = glm::dot(tb - eye, dir);
-    auto dc = glm::dot(tc - eye, dir);
+    auto da = glm::dot(ta - eye - dir * z_near, dir);
+    auto db = glm::dot(tb - eye - dir * z_near, dir);
+    auto dc = glm::dot(tc - eye - dir * z_near, dir);
 
     if (da < 0 && db < 0 && dc < 0) {
       continue;

@@ -190,7 +190,7 @@ void World::render_iteration(
     _renderer.world(entry.data.orientation, entry.data.clip_planes);
     _renderer.depth(*entry.chunk->mesh, stencil_ref, VALUE_BITS);
     // Renderer the chunk.
-    _renderer.draw(*entry.chunk->mesh, stencil_ref, VALUE_BITS);
+    _renderer.draw(*entry.chunk->mesh, _player, stencil_ref, VALUE_BITS);
     // Render the objects in the source chunk, with the clipping and
     // stencilling of this chunk. This is necessary because the depth has
     // been cleared since the last time we rendered it.
@@ -279,6 +279,6 @@ void World::render_objects_in_chunk(
     // portal area. Otherwise, this could result in artifact objects from
     // overlapping spaces.
     _renderer.world(transform, data.clip_planes);
-    _renderer.draw(_player.get_mesh(), stencil_ref, VALUE_BITS);
+    _renderer.draw(_player.get_mesh(), _player, stencil_ref, VALUE_BITS);
   }
 }

@@ -1,5 +1,6 @@
 #include "player.h"
 #include "collision.h"
+#include "geometry.h"
 #include <glm/gtc/constants.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 
@@ -29,8 +30,8 @@ void Player::update(const ControlData& controls,
       cos(_angle.y) * cos(-_angle.x)};
 
   auto velocity =
-      get_side_direction() * float(controls.right - controls.left) +
-      get_forward_direction() * float(controls.forward - controls.reverse);
+      side_direction(_look_dir) * float(controls.right - controls.left) +
+      forward_direction(_look_dir) * float(controls.forward - controls.reverse);
 
   if (velocity != glm::vec3{0, 0, 0}) {
     velocity = (1.f / 32) * glm::normalize(velocity);
@@ -63,21 +64,6 @@ const glm::vec3& Player::get_head_position() const
 const glm::vec3& Player::get_look_direction() const
 {
   return _look_dir;
-}
-
-glm::vec3 Player::get_side_direction() const
-{
-  return glm::normalize(glm::cross(_look_dir, {0, 1, 0}));
-}
-
-glm::vec3 Player::get_up_direction() const
-{
-  return glm::normalize(glm::cross(get_side_direction(), _look_dir));
-}
-
-glm::vec3 Player::get_forward_direction() const
-{
-  return glm::normalize(glm::cross({0, 1, 0}, get_side_direction()));
 }
 
 float Player::get_fov() const

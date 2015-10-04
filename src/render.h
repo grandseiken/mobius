@@ -8,6 +8,7 @@
 #include <vector>
 #include <cstdint>
 
+class Player;
 class Mesh;
 
 class Renderer {
@@ -33,8 +34,8 @@ public:
                uint32_t test_mask, uint32_t write_mask, bool depth_eq) const;
   void depth(const Mesh& mesh, uint32_t stencil_ref,
                                uint32_t stencil_mask) const;
-  void draw(const Mesh& mesh, uint32_t stencil_ref,
-                              uint32_t stencil_mask) const;
+  void draw(const Mesh& mesh, const Player& player,
+            uint32_t stencil_ref, uint32_t stencil_mask) const;
   void render() const;
 
   float get_aspect_ratio() const;
@@ -79,7 +80,6 @@ private:
     float z_near = 0;
     float z_far = 0;
   } _perspective;
-  glm::vec3 _camera_eye;
 
   // For view (world space to camera space) transform.
   glm::mat4 _view_transform;

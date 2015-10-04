@@ -1,4 +1,4 @@
-layout(location = 0) in vec3 model;
+layout(location = 0) in vec3 world;
 
 smooth out vec3 vertex_world;
 
@@ -10,11 +10,10 @@ uniform vec3 clip_normals[8];
 
 void main()
 {
-  vec4 world = world_transform * vec4(model, 1.);
-  vec4 clip = vp_transform * world;
+  vec4 clip = vp_transform * vec4(world, 1.);
   gl_Position = clip;
 
-  vertex_world = world.xyz;
+  vertex_world = world;
 
   // Custom clipping planes.
   for (int i = 0; i < 8; ++i) {

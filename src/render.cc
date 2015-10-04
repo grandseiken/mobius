@@ -1,4 +1,6 @@
 #include "render.h"
+#include "geometry.h"
+#include "player.h"
 #include "mesh.h"
 
 #include <glm/gtc/matrix_transform.hpp>
@@ -323,7 +325,6 @@ void Renderer::camera(const glm::vec3& eye, const glm::vec3& target,
 {
   _view_transform = glm::lookAt(eye, target, up);
   _vp_transform_dirty = true;
-  _camera_eye = eye;
 }
 
 void Renderer::world(const glm::mat4& world_transform)
@@ -430,8 +431,8 @@ void Renderer::depth(const Mesh& mesh, uint32_t stencil_ref,
   glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
 }
 
-void Renderer::draw(const Mesh& mesh, uint32_t stencil_ref,
-                                      uint32_t stencil_mask) const
+void Renderer::draw(const Mesh& mesh, const Player& player,
+                    uint32_t stencil_ref, uint32_t stencil_mask) const
 {
   compute_transform();
   render_settings(/* dtest */ true, /* dmask */ true, /* depth_eq */ false,
@@ -459,26 +460,70 @@ void Renderer::draw(const Mesh& mesh, uint32_t stencil_ref,
 
   // TODO: this outline code shouldn't really be here. It could also do
   // visibility calculations.
+  const auto& eye = player.get_head_position();
+  const auto& dir = player.get_look_direction();
+  auto side = side_direction(dir);
+  auto up = up_direction(dir);
+  auto z_near = player.get_z_near();
+  const float outline_width = 4. / _dimensions.y;
+
   std::vector<float> outline_vertices;
   std::vector<GLushort> outline_indices;
+  size_t vertex_count = 0;
+
   for (const auto& outline : mesh.outlines()) {
     glm::vec3 a{_world_transform * glm::vec4{outline.a, 1.}};
+    glm::vec3 b{_world_transform * glm::vec4{outline.b, 1.}};
+
     auto tn = _normal_transform * outline.t_normal;
     auto un = _normal_transform * outline.u_normal;
-    bool t_front = glm::dot(tn, _camera_eye - a) >= 0;
-    bool u_front = glm::dot(un, _camera_eye - a) >= 0;
+    bool t_front = glm::dot(tn, eye - a) >= 0;
+    bool u_front = glm::dot(un, eye - a) >= 0;
 
     if (t_front != u_front) {
-      outline_vertices.push_back(outline.a.x);
-      outline_vertices.push_back(outline.a.y);
-      outline_vertices.push_back(outline.a.z);
+      // Clip against near-plane.
+      auto da = glm::dot(a - eye - dir * z_near, dir);
+      auto db = glm::dot(b - eye - dir * z_near, dir);
+      if (da < 0 && db < 0) {
+        continue;
+      } else if (da < 0) {
+        a = b + db / (db - da) * (a - b);
+      } else if (db < 0) {
+        b = a + da / (da - db) * (b - a);
+      }
 
-      outline_vertices.push_back(outline.b.x);
-      outline_vertices.push_back(outline.b.y);
-      outline_vertices.push_back(outline.b.z);
+      // Project onto view-plane, work out directions.
+      auto coords_a = view_plane_coords(eye, dir, a);
+      auto coords_b = view_plane_coords(eye, dir, b);
+      auto offset = glm::normalize(
+          glm::vec2{coords_b.y - coords_a.y, coords_a.x - coords_b.x});
+      auto offset3 = offset.x * side + offset.y * up;
 
-      outline_indices.push_back(outline_indices.size());
-      outline_indices.push_back(outline_indices.size());
+      auto a0 = a - da * outline_width * offset3;
+      auto a1 = a + da * outline_width * offset3;
+      auto b0 = b - db * outline_width * offset3;
+      auto b1 = b + db * outline_width * offset3 * db;
+
+      outline_vertices.push_back(a0.x);
+      outline_vertices.push_back(a0.y);
+      outline_vertices.push_back(a0.z);
+      outline_vertices.push_back(a1.x);
+      outline_vertices.push_back(a1.y);
+      outline_vertices.push_back(a1.z);
+      outline_vertices.push_back(b0.x);
+      outline_vertices.push_back(b0.y);
+      outline_vertices.push_back(b0.z);
+      outline_vertices.push_back(b1.x);
+      outline_vertices.push_back(b1.y);
+      outline_vertices.push_back(b1.z);
+
+      outline_indices.push_back(0 + vertex_count);
+      outline_indices.push_back(1 + vertex_count);
+      outline_indices.push_back(2 + vertex_count);
+      outline_indices.push_back(1 + vertex_count);
+      outline_indices.push_back(3 + vertex_count);
+      outline_indices.push_back(2 + vertex_count);
+      vertex_count += 4;
     }
   }
   if (outline_indices.empty()) {
@@ -513,10 +558,9 @@ void Renderer::draw(const Mesh& mesh, uint32_t stencil_ref,
   glUniform3fv(
       glGetUniformLocation(_outline_program, "light_source"), 1,
       glm::value_ptr(_light.source));
-  glLineWidth(2);
 
   glBindVertexArray(outline_vao);
-  glDrawElements(GL_LINES, outline_indices.size() / 2, GL_UNSIGNED_SHORT, 0);
+  glDrawElements(GL_TRIANGLES, outline_indices.size(), GL_UNSIGNED_SHORT, 0);
 
   glDeleteVertexArrays(1, &outline_vao);
   glDeleteBuffers(1, &outline_vbo);
