@@ -7,7 +7,6 @@ flat in vec3 vertex_normal;
 out vec4 output_colour;
 
 uniform vec3 light_source;
-uniform float light_intensity;
 uniform sampler1D simplex_gradient_lut;
 uniform sampler1D simplex_permutation_lut;
 uniform bool simplex_use_permutation_lut;
@@ -49,7 +48,9 @@ vec4 dFsimplex3(float scale, float dF, vec3 value)
 }
 
 const bool rocky = false;
-const bool fake_lighting = true;
+const float light_intensity = 64.;
+const vec3 light_direction = normalize(vec3(1., 1.125, 1.25));
+
 void main()
 {
   // We rotate slightly to avoid planar cuts through 3D noise.
@@ -81,15 +82,11 @@ void main()
 
   vec3 light_difference = light_source - vertex_world;
   float light_distance_sq = dot(light_difference, light_difference);
-  vec3 light_normal = fake_lighting ? normalize(vec3(1., 1.125, 1.25)) :
-      light_difference * inversesqrt(light_distance_sq);
 
-  // When both light and camera are too close to the surface, we get artifacts
-  // far away that show the plane and ruin the effect. We could fake occlusion
-  // of back-facing normals somehow.
-  float cos_angle = (dot(light_normal, surface_normal) +
-                     dot(light_normal, vertex_normal)) / 2.;
-  cos_angle = !fake_lighting ? max(0., cos_angle) : .5 + cos_angle / 2.;
+  // Completely faked lighting.
+  float cos_angle = (dot(light_direction, surface_normal) +
+                     dot(light_direction, vertex_normal)) / 2.;
+  cos_angle = .5 + cos_angle / 2.;
 
   float intensity = (light_intensity * cos_angle) / (1. + light_distance_sq);
   // Extremely simple HDR (tone-mapping). Works because we only do one render

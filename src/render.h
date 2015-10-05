@@ -24,7 +24,6 @@ public:
   void world(const glm::mat4& world_transform);
   void world(const glm::mat4& world_transform,
              const std::vector<plane>& clip_planes);
-  void light(const glm::vec3& source, float intensity);
 
   void clear() const;
   void clear_depth(uint32_t stencil_ref, uint32_t stencil_mask) const;
@@ -67,11 +66,6 @@ private:
   uint32_t _quad_vao = 0;
   uint32_t _quad_vbo = 0;
   uint32_t _quad_ibo = 0;
-
-  struct {
-    glm::vec3 source;
-    float intensity;
-  } _light;
 
   // For perspective (camera space to clip space) transform.
   glm::ivec2 _dimensions;

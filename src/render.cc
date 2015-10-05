@@ -340,12 +340,6 @@ void Renderer::world(const glm::mat4& world_transform,
   _clip_planes = clip_planes;
 }
 
-void Renderer::light(const glm::vec3& source, float intensity)
-{
-  _light.source = source;
-  _light.intensity = intensity;
-}
-
 void Renderer::clear() const
 {
   ++_frame;
@@ -445,12 +439,9 @@ void Renderer::draw(const Mesh& mesh, const Player& player,
   glUniformMatrix3fv(
       glGetUniformLocation(_draw_program, "normal_transform"),
       1, GL_FALSE, glm::value_ptr(_normal_transform));
-
   glUniform3fv(
       glGetUniformLocation(_draw_program, "light_source"), 1,
-      glm::value_ptr(_light.source));
-  glUniform1f(
-      glGetUniformLocation(_draw_program, "light_intensity"), _light.intensity);
+      glm::value_ptr(player.get_head_position()));
 
   glBindFramebuffer(GL_DRAW_FRAMEBUFFER, _fbo);
   glBindVertexArray(mesh.vao());
@@ -558,7 +549,7 @@ void Renderer::draw(const Mesh& mesh, const Player& player,
   set_mvp_uniforms(_outline_program);
   glUniform3fv(
       glGetUniformLocation(_outline_program, "light_source"), 1,
-      glm::value_ptr(_light.source));
+      glm::value_ptr(player.get_head_position()));
 
   glBindVertexArray(outline_vao);
   glDrawElements(GL_TRIANGLES, outline_indices.size(), GL_UNSIGNED_SHORT, 0);

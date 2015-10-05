@@ -128,7 +128,6 @@ void World::render(RenderMetrics& metrics) const
   _renderer.perspective(
       _player.get_fov(), _player.get_z_near(), _player.get_z_far());
   _renderer.camera(head, look_at, {0, 1, 0});
-  _renderer.light(head, 128.f);
   _renderer.clear();
 
   metrics.chunks = 0;
