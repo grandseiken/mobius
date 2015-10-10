@@ -461,11 +461,14 @@ void Renderer::draw(const Mesh& mesh, const Player& player,
   std::vector<float> outline_vertices;
   std::vector<GLushort> outline_indices;
   size_t vertex_count = 0;
-  auto add_outline = [&](const glm::vec3& v)
+  auto add_outline = [&](const glm::vec3& v, const glm::vec3& c)
   {
     outline_vertices.push_back(v.x);
     outline_vertices.push_back(v.y);
     outline_vertices.push_back(v.z);
+    outline_vertices.push_back(c.r);
+    outline_vertices.push_back(c.g);
+    outline_vertices.push_back(c.b);
   };
 
   for (const auto& outline : mesh.outlines()) {
@@ -504,10 +507,10 @@ void Renderer::draw(const Mesh& mesh, const Player& player,
       auto b0 = b + db * outline_width * (offset3 - perp3);
       auto b1 = b + db * outline_width * (offset3 + perp3);
 
-      add_outline(a0);
-      add_outline(a1);
-      add_outline(b0);
-      add_outline(b1);
+      add_outline(a0, outline.colour);
+      add_outline(a1, outline.colour);
+      add_outline(b0, outline.colour);
+      add_outline(b1, outline.colour);
 
       outline_indices.push_back(0 + vertex_count);
       outline_indices.push_back(1 + vertex_count);
@@ -541,8 +544,12 @@ void Renderer::draw(const Mesh& mesh, const Player& player,
 
   glBindVertexArray(outline_vao);
   glEnableVertexAttribArray(0);
+  glEnableVertexAttribArray(1);
   glBindBuffer(GL_ARRAY_BUFFER, outline_vbo);
-  glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, 0);
+  glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float),
+                        reinterpret_cast<void*>(sizeof(float) * 0));
+  glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float),
+                        reinterpret_cast<void*>(sizeof(float) * 3));
   glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, outline_ibo);
 
   glUseProgram(_outline_program);

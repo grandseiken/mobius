@@ -1,5 +1,6 @@
 #include "gamma.glsl.h"
 #include "simplex.glsl.h"
+#include "hsv.glsl.h"
 
 out vec4 output_colour;
 
@@ -10,62 +11,34 @@ uniform sampler1D simplex_gradient_lut;
 uniform sampler1D simplex_permutation_lut;
 uniform bool simplex_use_permutation_lut;
 
-vec3 hsv_to_rgb(float h, float s, float v)
-{
-  h = mod(h, 360.) / 60.;
-  s = clamp(s, 0., 1.);
-  v = clamp(v, 0., 1.);
-  if (v == 0.) {
-    return vec3(0.);
-  }
-  float i = floor(h);
-  float f = h - i;
-  float p = v * (1. - s);
-  float q = v * (1. - (s * f));
-  float t = v * (1. - (s * (1. - f)));
-
-  return i == 0 ? vec3(v, t, p) :
-         i == 1 ? vec3(q, v, p) :
-         i == 2 ? vec3(p, v, t) :
-         i == 3 ? vec3(p, q, v) :
-         i == 4 ? vec3(t, p, v) :
-         i == 5 ? vec3(v, p, q) :
-                  vec3(0., 0., 0.);
-}
-
 // [0, 1].
 const float grain_amount = 1. / 24;
 // [0, 360).
-const float hue_start = 340;
+const float hue_start = 340.;
 // [0, 50].
-const float hue_shift = 20;
+const float hue_shift = 20.;
 // [-50, 50].
-const float saturation = -12;
+const float saturation = -12.;
 
 const int ramp_size = 16;
-vec3 ramp_colour(int i)
+vec3 ramp_colour(int i, float source_hue)
 {
   i = ramp_size - 1 - i;
-  float hue = abs(mod(hue_start - hue_shift * (i - 8.), 360));
+  float hue =
+      abs(mod(hue_start + source_hue * 360. - hue_shift * (i - 8.), 360));
   float shift = (8. - abs(i - 7.)) * saturation / 5.;
   return hsv_to_rgb(
-      hue, float(i) / (ramp_size - 1.) + shift / 100.,
+      hue / 360., float(i) / (ramp_size - 1.) + shift / 100.,
       float(ramp_size - i - 1.) / (ramp_size - 1.) + shift / 100.);
 }
 
-vec3 ramp_colours[ramp_size] = vec3[](
-  ramp_colour(0), ramp_colour(1), ramp_colour(2), ramp_colour(3),
-  ramp_colour(4), ramp_colour(5), ramp_colour(6), ramp_colour(7),
-  ramp_colour(8), ramp_colour(9), ramp_colour(10), ramp_colour(11),
-  ramp_colour(12), ramp_colour(13), ramp_colour(14), ramp_colour(15));
-
-vec3 ramp_colour(float v)
+vec3 ramp_colour(float v, float hue)
 {
   float f = v * (ramp_size - 1.);
   int a = int(floor(f));
   int b = int(ceil(f));
   float t = mod(f, 1.);
-  return ramp_colours[a] * (1. - t) + ramp_colours[b] * t;
+  return ramp_colour(a, hue) * (1. - t) + ramp_colour(b, hue) * t;
 }
 
 float simplex_layer(vec3 seed, float time, float pow)
@@ -88,11 +61,14 @@ void main()
   float v = clamp((n + 1.) / 2., 0., 1.);
 
   const float scale = .85;
-  float source = texture(read_framebuffer, gl_FragCoord.xy / dimensions).x;
-  source = scale * gamma_correct(source);
+  vec4 source = texture(read_framebuffer, gl_FragCoord.xy / dimensions);
+  float source_intensity = scale * gamma_correct(source.x);
+  float source_hue = source.y;
 
-  float dynamic_grain_amount = grain_amount * (1 - source);
-  float value = v * dynamic_grain_amount + (1 - dynamic_grain_amount) * source;
-  output_colour = vec4(ramp_colour(value), 1.);
+  float dynamic_grain_amount = grain_amount * (1 - source_intensity);
+  float value = v * dynamic_grain_amount +
+      (1 - dynamic_grain_amount) * source_intensity;
+
+  output_colour = vec4(ramp_colour(value, source_hue), 1.);
 }
 
