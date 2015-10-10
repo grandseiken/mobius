@@ -27,7 +27,8 @@ message quad {
 }
 
 message material {
-  rgb colour = 1;
+  float hue = 1;
+  float hue_shift = 2;
 }
 
 message geometry {

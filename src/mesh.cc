@@ -80,14 +80,17 @@ Mesh::Mesh(const mobius::proto::mesh& mesh)
   glEnableVertexAttribArray(0);
   glEnableVertexAttribArray(1);
   glEnableVertexAttribArray(2);
+  glEnableVertexAttribArray(3);
 
   glBindBuffer(GL_ARRAY_BUFFER, _vbo);
-  glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 9 * sizeof(float),
+  glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float),
                         reinterpret_cast<void*>(sizeof(float) * 0));
-  glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 9 * sizeof(float),
+  glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float),
                         reinterpret_cast<void*>(sizeof(float) * 3));
-  glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, 9 * sizeof(float),
+  glVertexAttribPointer(2, 1, GL_FLOAT, GL_FALSE, 8 * sizeof(float),
                         reinterpret_cast<void*>(sizeof(float) * 6));
+  glVertexAttribPointer(3, 1, GL_FLOAT, GL_FALSE, 8 * sizeof(float),
+                        reinterpret_cast<void*>(sizeof(float) * 7));
   glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, _ibo);
   glBindVertexArray(0);
 
@@ -135,6 +138,8 @@ void Mesh::generate_data(std::vector<float>& visible_vertices,
   const auto& geometry = mesh.geometry(submesh.geometry());
   std::unordered_set<size_t> physical_indices;
   auto transform = submesh_transform(submesh);
+  auto hue = submesh.material().hue();
+  auto hue_shift = submesh.material().hue_shift();
 
   auto add_visible_data = [&](const glm::vec3& v)
   {
@@ -143,18 +148,17 @@ void Mesh::generate_data(std::vector<float>& visible_vertices,
     visible_vertices.push_back(v.z);
   };
 
-  auto add_visible_vertex_data = [&](const glm::vec3& v, const glm::vec3& n,
-                                     const glm::vec3& c)
+  auto add_visible_vertex_data = [&](const glm::vec3& v, const glm::vec3& n)
   {
     add_visible_data(v);
     add_visible_data(n);
-    add_visible_data(c);
+    visible_vertices.push_back(hue);
+    visible_vertices.push_back(hue_shift);
   };
 
   auto add_triangle = [&](const TriIndex& t)
   {
     const auto& flags = submesh.flags();
-    auto colour = load_rgb(submesh.material().colour());
     glm::vec3 va{transform * glm::vec4{load_vec3(mesh.vertex(t.a)), 1}};
     glm::vec3 vb{transform * glm::vec4{load_vec3(mesh.vertex(t.b)), 1}};
     glm::vec3 vc{transform * glm::vec4{load_vec3(mesh.vertex(t.c)), 1}};
@@ -166,9 +170,9 @@ void Mesh::generate_data(std::vector<float>& visible_vertices,
     normal = glm::normalize(normal);
 
     if (flags & mobius::proto::submesh::VISIBLE) {
-      add_visible_vertex_data(va, normal, colour);
-      add_visible_vertex_data(vb, normal, colour);
-      add_visible_vertex_data(vc, normal, colour);
+      add_visible_vertex_data(va, normal);
+      add_visible_vertex_data(vb, normal);
+      add_visible_vertex_data(vc, normal);
 
       visible_indices.push_back(visible_indices.size());
       visible_indices.push_back(visible_indices.size());
@@ -202,7 +206,8 @@ void Mesh::generate_outlines(const mobius::proto::mesh& mesh,
                              const mobius::proto::submesh& submesh)
 {
   auto transform = submesh_transform(submesh);
-  auto colour = load_rgb(submesh.material().colour());
+  auto hue = submesh.material().hue();
+  auto hue_shift = submesh.material().hue_shift();
   const auto& geometry = mesh.geometry(submesh.geometry());
   if (!(submesh.flags() & mobius::proto::submesh::VISIBLE)) {
     return;
@@ -215,7 +220,7 @@ void Mesh::generate_outlines(const mobius::proto::mesh& mesh,
   {
     // Skip concave edges.
     if (a0 == b1 && a1 == b0 && glm::dot(at - a0, b_normal) < 0) {
-      _outline_data.push_back({a0, a1, a_normal, b_normal, colour});
+      _outline_data.push_back({a0, a1, a_normal, b_normal, hue, hue_shift});
     }
   };
 

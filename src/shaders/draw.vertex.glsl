@@ -1,12 +1,12 @@
-#include "hsv.glsl.h"
-
 layout(location = 0) in vec3 model;
 layout(location = 1) in vec3 normal;
-layout(location = 2) in vec3 colour;
+layout(location = 2) in float hue;
+layout(location = 3) in float hue_shift;
 
 smooth out vec3 vertex_world;
 flat out vec3 vertex_normal;
 flat out float vertex_hue;
+flat out float vertex_hue_shift;
 
 uniform mat3 normal_transform;
 uniform mat4 world_transform;
@@ -24,7 +24,8 @@ void main()
 
   vertex_world = world.xyz;
   vertex_normal = normalize(world_normal);
-  vertex_hue = rgb_to_hue(colour);
+  vertex_hue = hue;
+  vertex_hue_shift = hue_shift;
 
   // Custom clipping planes.
   for (int i = 0; i < 8; ++i) {

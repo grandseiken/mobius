@@ -44,7 +44,8 @@ geometry {
 submesh: {
   flags: 2
   material: {
-    colour: {r: 1, g: 1, b: 0}
+    hue: 0.5
+    hue_shift: 0
   }
   geometry: 0
   scale: {x: .1875, y: .1875, z: .1875}
@@ -54,7 +55,8 @@ submesh: {
 submesh: {
   flags: 2
   material: {
-    colour: {r: 1, g: 1, b: 0}
+    hue: 0.5
+    hue_shift: 0
   }
   geometry: 2
   scale: {x: .125, y: .1875, z: .125}
@@ -64,7 +66,8 @@ submesh: {
 submesh: {
   flags: 3
   material: {
-    colour: {r: 1, g: 1, b: 0}
+    hue: 0.5
+    hue_shift: 0
   }
   geometry: 0
   scale: {x: .125, y: .5, z: .125}

@@ -32,7 +32,8 @@ public:
     glm::vec3 b;
     glm::vec3 t_normal;
     glm::vec3 u_normal;
-    glm::vec3 colour;
+    float hue;
+    float hue_shift;
   };
 
   uint32_t vao() const;

@@ -65,7 +65,7 @@ chunk: {
     submesh: {
       flags: 3
       material: {
-        colour: {r: .16, g: .63, b: .60}
+        hue: 0.8
       }
       geometry: 0
       scale: {x: 2, y: 2, z: 2}
@@ -74,7 +74,7 @@ chunk: {
     submesh: {
       flags: 3
       material: {
-        colour: {r: .35, g: .43, b: .46}
+        hue: 0
       }
       geometry: 1
       scale: {x: 4, y: 4, z: 4}

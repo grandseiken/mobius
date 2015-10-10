@@ -1,6 +1,7 @@
 #include "gamma.glsl.h"
 smooth in vec3 vertex_world;
 flat in float vertex_hue;
+flat in float vertex_hue_shift;
 
 out vec4 output_colour;
 
@@ -12,6 +13,7 @@ void main()
   float light_distance_sq = dot(light_difference, light_difference);
 
   float intensity = 2. / (1. + light_distance_sq);
-  output_colour = vec4(reinhard_tonemap(intensity), vertex_hue, 0., 1.);
+  output_colour = vec4(
+      reinhard_tonemap(intensity), vertex_hue, vertex_hue_shift, 1.);
 }
 

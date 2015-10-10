@@ -20,15 +20,3 @@ vec3 hsv_to_rgb(float h, float s, float v)
          i == 5 ? vec3(v, p, q) :
                   vec3(0., 0., 0.);
 }
-
-float rgb_to_hue(vec3 rgb)
-{
-  float c_max = max(rgb.r, max(rgb.g, rgb.b));
-  float c_min = min(rgb.r, min(rgb.g, rgb.b));
-  float delta = c_max - c_min;
-
-  return mix(
-      mix((rgb.r - rgb.g) / delta + 4.,
-          (rgb.b - rgb.r) / delta + 2., c_max == rgb.g),
-      mod((rgb.g - rgb.b) / delta, 6.), c_max == rgb.r) / 6.;
-}

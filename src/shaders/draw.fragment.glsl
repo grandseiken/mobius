@@ -4,6 +4,7 @@
 smooth in vec3 vertex_world;
 flat in vec3 vertex_normal;
 flat in float vertex_hue;
+flat in float vertex_hue_shift;
 
 out vec4 output_colour;
 
@@ -94,6 +95,7 @@ void main()
   // pass; multiple passes would require either special HDR framebuffers or
   // dynamic aperture based on reading the brightness from the last frame.
   float lit_colour = intensity * (texture.a + 1.) / 2.;
-  output_colour = vec4(reinhard_tonemap(lit_colour), vertex_hue, 0., 1.);
+  output_colour = vec4(
+      reinhard_tonemap(lit_colour), vertex_hue, vertex_hue_shift, 1.);
 }
 

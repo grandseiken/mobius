@@ -81,7 +81,8 @@ def export_submesh(mesh, obj, data):
   else:
     submesh.flags = 0
   submesh.material = proto()
-  submesh.material.colour = read_rgb([1, 1, 1])
+  submesh.material.hue = 340. / 360.
+  submesh.material.hue_shift = .4
 
   submesh.scale = read_vec3(obj.scale)
   submesh.translate = read_vec3(obj.location)

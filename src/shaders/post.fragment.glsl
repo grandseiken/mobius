@@ -13,32 +13,29 @@ uniform bool simplex_use_permutation_lut;
 
 // [0, 1].
 const float grain_amount = 1. / 24;
-// [0, 360).
-const float hue_start = 340.;
-// [0, 50].
-const float hue_shift = 20.;
 // [-50, 50].
 const float saturation = -12.;
 
 const int ramp_size = 16;
-vec3 ramp_colour(int i, float source_hue)
+vec3 ramp_colour(int i, float source_hue, float source_hue_shift)
 {
   i = ramp_size - 1 - i;
   float hue =
-      abs(mod(hue_start + source_hue * 360. - hue_shift * (i - 8.), 360));
+      abs(mod(source_hue * 360. - source_hue_shift * 50. * (i - 8.), 360));
   float shift = (8. - abs(i - 7.)) * saturation / 5.;
   return hsv_to_rgb(
       hue / 360., float(i) / (ramp_size - 1.) + shift / 100.,
       float(ramp_size - i - 1.) / (ramp_size - 1.) + shift / 100.);
 }
 
-vec3 ramp_colour(float v, float hue)
+vec3 ramp_colour(float v, float source_hue, float source_hue_shift)
 {
   float f = v * (ramp_size - 1.);
   int a = int(floor(f));
   int b = int(ceil(f));
   float t = mod(f, 1.);
-  return ramp_colour(a, hue) * (1. - t) + ramp_colour(b, hue) * t;
+  return ramp_colour(a, source_hue, source_hue_shift) *
+      (1. - t) + ramp_colour(b, source_hue, source_hue_shift) * t;
 }
 
 float simplex_layer(vec3 seed, float time, float pow)
@@ -64,11 +61,13 @@ void main()
   vec4 source = texture(read_framebuffer, gl_FragCoord.xy / dimensions);
   float source_intensity = scale * gamma_correct(source.x);
   float source_hue = source.y;
+  float source_hue_shift = source.z;
 
   float dynamic_grain_amount = grain_amount * (1 - source_intensity);
   float value = v * dynamic_grain_amount +
       (1 - dynamic_grain_amount) * source_intensity;
 
-  output_colour = vec4(ramp_colour(value, source_hue), 1.);
+  output_colour =
+      vec4(ramp_colour(value, source_hue, source_hue_shift), 1.);
 }
 
