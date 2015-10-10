@@ -1,6 +1,6 @@
 layout(location = 0) in vec3 world;
 layout(location = 1) in float hue;
-layout(location = 1) in float hue_shift;
+layout(location = 2) in float hue_shift;
 
 smooth out vec3 vertex_world;
 flat out float vertex_hue;

@@ -11,67 +11,6 @@
 #include <vector>
 
 namespace {
-  GLuint create_shader(const std::string& name,
-                       uint32_t shader_type, const std::string& source)
-  {
-    auto shader = glCreateShader(shader_type);
-    auto data = source.data();
-    glShaderSource(shader, 1, &data, nullptr);
-    glCompileShader(shader);
-
-    GLint status;
-    glGetShaderiv(shader, GL_COMPILE_STATUS, &status);
-    if (status == GL_TRUE) {
-      return shader;
-    }
-
-    GLint log_length;
-    glGetShaderiv(shader, GL_INFO_LOG_LENGTH, &log_length);
-
-    std::unique_ptr<GLchar> log{new GLchar[log_length + 1]};
-    glGetShaderInfoLog(shader, log_length, nullptr, log.get());
-
-    std::cerr <<
-      "Compile error in shader '" << name << "':\n" << log.get() << "\n";
-    return 0;
-  }
-
-  GLuint create_program(const std::string& name,
-                        const std::vector<GLuint>& shaders)
-  {
-    for (const auto& shader : shaders) {
-      if (shader == 0) {
-        return 0;
-      }
-    }
-
-    GLuint program = glCreateProgram();
-    for (const auto& shader : shaders) {
-      glAttachShader(program, shader);
-    }
-    glLinkProgram(program);
-
-    GLint status;
-    glGetProgramiv(program, GL_LINK_STATUS, &status);
-    if (status == GL_TRUE) {
-      for (const auto& shader : shaders) {
-        glDetachShader(program, shader);
-        glDeleteShader(shader);
-      }
-      return program;
-    }
-
-    GLint log_length;
-    glGetProgramiv(program, GL_INFO_LOG_LENGTH, &log_length);
-
-    std::unique_ptr<GLchar> log{new GLchar[log_length + 1]};
-    glGetProgramInfoLog(program, log_length, nullptr, log.get());
-
-    std::cerr <<
-      "Link error in program '" << name << "':\n" << log.get() << "\n";
-    return 0;
-  }
-
   void render_settings(bool depth_test, bool depth_mask, bool depth_eq,
                        bool colour_mask, bool blend)
   {
@@ -104,11 +43,8 @@ namespace {
   }
 }
 
-#define GLEW_CHECK(value) \
-  if (!value) std::cerr << "Warning: " #value " not supported\n";
-
 #define SHADER(name, type) \
-  create_shader( \
+  GlShader( \
     #name, type, std::string(\
       gen_shaders_##name##_glsl, \
       gen_shaders_##name##_glsl + gen_shaders_##name##_glsl_len))
@@ -136,37 +72,18 @@ static const GLushort quad_indices[] = {
 };
 
 Renderer::Renderer()
+: _draw_program("main", {SHADER(draw_vertex, GL_VERTEX_SHADER),
+                         SHADER(draw_fragment, GL_FRAGMENT_SHADER)})
+, _quad_program{"quad", {SHADER(quad_vertex, GL_VERTEX_SHADER)}}
+, _post_program{"post", {SHADER(quad_vertex, GL_VERTEX_SHADER),
+                         SHADER(post_fragment, GL_FRAGMENT_SHADER)}}
+, _world_program{"world", {SHADER(world_vertex, GL_VERTEX_SHADER)}}
+, _outline_program{"outline", {SHADER(outline_vertex, GL_VERTEX_SHADER),
+                               SHADER(outline_fragment, GL_FRAGMENT_SHADER)}}
 {
-  auto glew_ok = glewInit();
-  if (glew_ok != GLEW_OK) {
-    std::cerr << "Couldn't initialize GLEW: " <<
-        glewGetErrorString(glew_ok) << "\n";
-  }
-
-  GLEW_CHECK(GLEW_VERSION_3_3);
-  GLEW_CHECK(GLEW_ARB_shading_language_100);
-  GLEW_CHECK(GLEW_ARB_shader_objects);
-  GLEW_CHECK(GLEW_ARB_vertex_shader);
-  GLEW_CHECK(GLEW_ARB_fragment_shader);
-  GLEW_CHECK(GLEW_ARB_framebuffer_object);
-  GLEW_CHECK(GLEW_EXT_framebuffer_multisample);
   // Should we have multiple permutation resolutions for different texture
   // sizes? Or just use several 1D textures and pack them in?
   glGetIntegerv(GL_MAX_TEXTURE_SIZE, &_max_texture_size);
-
-  _draw_program = create_program("main", {
-      SHADER(draw_vertex, GL_VERTEX_SHADER),
-      SHADER(draw_fragment, GL_FRAGMENT_SHADER)});
-  _world_program = create_program("quad", {
-      SHADER(quad_vertex, GL_VERTEX_SHADER)});
-  _post_program = create_program("post", {
-      SHADER(quad_vertex, GL_VERTEX_SHADER),
-      SHADER(post_fragment, GL_FRAGMENT_SHADER)});
-  _world_program = create_program("world", {
-      SHADER(world_vertex, GL_VERTEX_SHADER)});
-  _outline_program = create_program("outline", {
-      SHADER(outline_vertex, GL_VERTEX_SHADER),
-      SHADER(outline_fragment, GL_FRAGMENT_SHADER)});
 
   glGenTextures(1, &_simplex_gradient_lut);
   glBindTexture(GL_TEXTURE_1D, _simplex_gradient_lut);
@@ -222,11 +139,6 @@ Renderer::~Renderer()
     glDeleteFramebuffers(1, &_fbo_intermediate);
     glDeleteTextures(1, &_fbt_intermediate);
   }
-  glDeleteProgram(_draw_program);
-  glDeleteProgram(_quad_program);
-  glDeleteProgram(_post_program);
-  glDeleteProgram(_world_program);
-  glDeleteProgram(_outline_program);
 
   glDeleteSamplers(1, &_sampler);
   glDeleteTextures(1, &_simplex_gradient_lut);
@@ -368,13 +280,12 @@ void Renderer::clear_depth(uint32_t stencil_ref, uint32_t stencil_mask) const
   stencil_settings(stencil_ref, stencil_mask, 0x00);
 
   glBindFramebuffer(GL_DRAW_FRAMEBUFFER, _fbo);
-  glUseProgram(_post_program);
+  auto program = _post_program.use();
 
   glBindVertexArray(_quad_vao);
   glDrawElements(GL_TRIANGLES, sizeof(quad_indices) / sizeof(quad_indices[0]),
                  GL_UNSIGNED_SHORT, 0);
   glBindVertexArray(0);
-  glUseProgram(0);
 }
 
 void Renderer::clear_stencil(uint32_t stencil_mask) const
@@ -395,14 +306,13 @@ void Renderer::stencil(
                   /* cmask */ false, /* blend */ false);
   stencil_settings(stencil_ref, test_mask, write_mask);
 
-  glUseProgram(_world_program);
-  set_mvp_uniforms(_world_program);
+  auto program = _world_program.use();
+  set_mvp_uniforms(program);
 
   glBindFramebuffer(GL_DRAW_FRAMEBUFFER, _fbo);
   glBindVertexArray(mesh.vao());
   glDrawElements(GL_TRIANGLES, mesh.vertex_count(), GL_UNSIGNED_SHORT, 0);
   glBindVertexArray(0);
-  glUseProgram(0);
   glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
 }
 
@@ -414,14 +324,13 @@ void Renderer::depth(const Mesh& mesh, uint32_t stencil_ref,
                   /* cmask */ false, /* blend */ false);
   stencil_settings(stencil_ref, stencil_mask, 0x00);
 
-  glUseProgram(_world_program);
-  set_mvp_uniforms(_world_program);
+  auto program = _world_program.use();
+  set_mvp_uniforms(program);
 
   glBindFramebuffer(GL_DRAW_FRAMEBUFFER, _fbo);
   glBindVertexArray(mesh.vao());
   glDrawElements(GL_TRIANGLES, mesh.vertex_count(), GL_UNSIGNED_SHORT, 0);
   glBindVertexArray(0);
-  glUseProgram(0);
   glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
 }
 
@@ -433,21 +342,20 @@ void Renderer::draw(const Mesh& mesh, const Player& player,
                   /* cmask */ true, /* blend */ false);
   stencil_settings(stencil_ref, stencil_mask, 0x00);
 
-  glUseProgram(_draw_program);
-  set_simplex_uniforms(_draw_program);
-  set_mvp_uniforms(_draw_program);
-  glUniformMatrix3fv(
-      glGetUniformLocation(_draw_program, "normal_transform"),
-      1, GL_FALSE, glm::value_ptr(_normal_transform));
-  glUniform3fv(
-      glGetUniformLocation(_draw_program, "light_source"), 1,
-      glm::value_ptr(player.get_head_position()));
+  {
+    auto program = _draw_program.use();
+    set_simplex_uniforms(program);
+    set_mvp_uniforms(program);
+    glUniformMatrix3fv(program.uniform("normal_transform"),
+                       1, GL_FALSE, glm::value_ptr(_normal_transform));
+    glUniform3fv(program.uniform("light_source"),
+                 1, glm::value_ptr(player.get_head_position()));
 
-  glBindFramebuffer(GL_DRAW_FRAMEBUFFER, _fbo);
-  glBindVertexArray(mesh.vao());
-  glDrawElements(GL_TRIANGLES, mesh.vertex_count(), GL_UNSIGNED_SHORT, 0);
-  glUseProgram(0);
-  glBindVertexArray(0);
+    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, _fbo);
+    glBindVertexArray(mesh.vao());
+    glDrawElements(GL_TRIANGLES, mesh.vertex_count(), GL_UNSIGNED_SHORT, 0);
+    glBindVertexArray(0);
+  }
 
   // TODO: this outline code shouldn't really be here. It could also do
   // visibility calculations.
@@ -554,11 +462,10 @@ void Renderer::draw(const Mesh& mesh, const Player& player,
                         reinterpret_cast<void*>(sizeof(float) * 4));
   glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, outline_ibo);
 
-  glUseProgram(_outline_program);
-  set_mvp_uniforms(_outline_program);
-  glUniform3fv(
-      glGetUniformLocation(_outline_program, "light_source"), 1,
-      glm::value_ptr(player.get_head_position()));
+  auto program = _outline_program.use();
+  set_mvp_uniforms(program);
+  glUniform3fv(program.uniform("light_source"),
+               1, glm::value_ptr(player.get_head_position()));
 
   glBindVertexArray(outline_vao);
   glDrawElements(GL_TRIANGLES, outline_indices.size(), GL_UNSIGNED_SHORT, 0);
@@ -567,7 +474,6 @@ void Renderer::draw(const Mesh& mesh, const Player& player,
   glDeleteBuffers(1, &outline_vbo);
   glDeleteBuffers(1, &outline_ibo);
 
-  glUseProgram(0);
   glBindVertexArray(0);
   glBindBuffer(GL_ARRAY_BUFFER, 0);
   glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
@@ -593,15 +499,12 @@ void Renderer::render() const
   glm::vec2 dimensions = _dimensions;
 
   glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
-  glUseProgram(_post_program);
-  glUniform1f(glGetUniformLocation(_post_program, "frame"), _frame);
-  glUniform2fv(
-      glGetUniformLocation(_post_program, "dimensions"),
-      1, glm::value_ptr(dimensions));
-  set_simplex_uniforms(_post_program);
+  auto program = _post_program.use();
+  glUniform1f(program.uniform("frame"), _frame);
+  glUniform2fv(program.uniform("dimensions"), 1, glm::value_ptr(dimensions));
+  set_simplex_uniforms(program);
 
-  glUniform1i(
-      glGetUniformLocation(_post_program, "read_framebuffer"), 2);
+  glUniform1i(program.uniform("read_framebuffer"), 2);
   glActiveTexture(GL_TEXTURE2);
   glBindTexture(GL_TEXTURE_2D, _fbt_intermediate ? _fbt_intermediate : _fbt);
   glBindSampler(2, _sampler);
@@ -610,7 +513,6 @@ void Renderer::render() const
   glDrawElements(GL_TRIANGLES, sizeof(quad_indices) / sizeof(quad_indices[0]),
                  GL_UNSIGNED_SHORT, 0);
   glBindVertexArray(0);
-  glUseProgram(0);
 }
 
 float Renderer::get_aspect_ratio() const
@@ -636,14 +538,12 @@ void Renderer::compute_transform() const
   }
 }
 
-void Renderer::set_mvp_uniforms(uint32_t program) const
+void Renderer::set_mvp_uniforms(const GlActiveProgram& program) const
 {
-  glUniformMatrix4fv(
-      glGetUniformLocation(program, "world_transform"),
-      1, GL_FALSE, glm::value_ptr(_world_transform));
-  glUniformMatrix4fv(
-      glGetUniformLocation(program, "vp_transform"),
-      1, GL_FALSE, glm::value_ptr(_vp_transform));
+  glUniformMatrix4fv(program.uniform("world_transform"),
+                     1, GL_FALSE, glm::value_ptr(_world_transform));
+  glUniformMatrix4fv(program.uniform("vp_transform"),
+                     1, GL_FALSE, glm::value_ptr(_vp_transform));
 
   static const uint32_t max_clip_distances = 8;
   for (uint32_t i = 0; i < max_clip_distances; ++i) {
@@ -660,28 +560,24 @@ void Renderer::set_mvp_uniforms(uint32_t program) const
     points.push_back(pair.first);
     normals.push_back(pair.second);
   }
-  glUniform3fv(
-      glGetUniformLocation(program, "clip_points"),
-      points.size(), glm::value_ptr(*points.data()));
-  glUniform3fv(
-      glGetUniformLocation(program, "clip_normals"),
-      normals.size(), glm::value_ptr(*normals.data()));
+  glUniform3fv(program.uniform("clip_points"),
+               points.size(), glm::value_ptr(*points.data()));
+  glUniform3fv(program.uniform("clip_normals"),
+               normals.size(), glm::value_ptr(*normals.data()));
 }
 
-void Renderer::set_simplex_uniforms(uint32_t program) const
+void Renderer::set_simplex_uniforms(const GlActiveProgram& program) const
 {
   glUniform1i(
-      glGetUniformLocation(program, "simplex_use_permutation_lut"),
+      program.uniform("simplex_use_permutation_lut"),
       uint32_t(_max_texture_size) >= ARRAY_LENGTH(gen_simplex_permutation_lut));
 
-  glUniform1i(
-      glGetUniformLocation(program, "simplex_gradient_lut"), 0);
+  glUniform1i(program.uniform("simplex_gradient_lut"), 0);
   glActiveTexture(GL_TEXTURE0);
   glBindTexture(GL_TEXTURE_1D, _simplex_gradient_lut);
   glBindSampler(0, _sampler);
 
-  glUniform1i(
-      glGetUniformLocation(program, "simplex_permutation_lut"), 1);
+  glUniform1i(program.uniform("simplex_permutation_lut"), 1);
   glActiveTexture(GL_TEXTURE1);
   glBindTexture(GL_TEXTURE_1D, _simplex_permutation_lut);
   glBindSampler(1, _sampler);

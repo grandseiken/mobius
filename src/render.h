@@ -1,6 +1,7 @@
 #ifndef MOBIUS_RENDER_H
 #define MOBIUS_RENDER_H
 
+#include "glo.h"
 #include <glm/vec2.hpp>
 #include <glm/vec3.hpp>
 #include <glm/mat3x3.hpp>
@@ -43,20 +44,22 @@ private:
   void compute_transform() const;
   // We should really avoid setting uniforms that haven't changed. Maybe using
   // uniform buffers?
-  void set_mvp_uniforms(uint32_t program) const;
-  void set_simplex_uniforms(uint32_t program) const;
+  void set_mvp_uniforms(const GlActiveProgram& program) const;
+  void set_simplex_uniforms(const GlActiveProgram& program) const;
 
+  GlInit _gl_init;
   uint32_t _fbo = 0;
   uint32_t _fbt = 0;
   uint32_t _fbd = 0;
   uint32_t _fbo_intermediate = 0;
   uint32_t _fbt_intermediate = 0;
 
-  uint32_t _draw_program = 0;
-  uint32_t _quad_program = 0;
-  uint32_t _post_program = 0;
-  uint32_t _world_program = 0;
-  uint32_t _outline_program = 0;
+  GlProgram _draw_program;
+  GlProgram _quad_program;
+  GlProgram _post_program;
+  GlProgram _world_program;
+  GlProgram _outline_program;
+
   uint32_t _simplex_gradient_lut = 0;
   uint32_t _simplex_permutation_lut = 0;
   uint32_t _sampler = 0;
