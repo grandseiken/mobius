@@ -9,8 +9,8 @@
 #include <vector>
 #include <cstdint>
 
-class Player;
 class Mesh;
+class Player;
 
 class Renderer {
 public:
@@ -30,10 +30,10 @@ public:
   void clear_depth(uint32_t stencil_ref, uint32_t stencil_mask) const;
   void clear_stencil(uint32_t stencil_mask) const;
 
-  void stencil(const Mesh& mesh, uint32_t stencil_ref,
+  void stencil(const GlVertexData& data, uint32_t stencil_ref,
                uint32_t test_mask, uint32_t write_mask, bool depth_eq) const;
-  void depth(const Mesh& mesh, uint32_t stencil_ref,
-                               uint32_t stencil_mask) const;
+  void depth(const GlVertexData& data, uint32_t stencil_ref,
+                                       uint32_t stencil_mask) const;
   void draw(const Mesh& mesh, const Player& player,
             uint32_t stencil_ref, uint32_t stencil_mask) const;
   void render() const;
@@ -66,9 +66,7 @@ private:
 
   int32_t _max_texture_size = 0;
   mutable uint32_t _frame = 0;
-  uint32_t _quad_vao = 0;
-  uint32_t _quad_vbo = 0;
-  uint32_t _quad_ibo = 0;
+  GlVertexData _quad_data;
 
   // For perspective (camera space to clip space) transform.
   glm::ivec2 _dimensions;

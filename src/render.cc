@@ -60,14 +60,14 @@ namespace {
 #include "../gen/shaders/outline.fragment.glsl.h"
 #include "../gen/tools/simplex_lut.h"
 
-static const float quad_vertices[] = {
+std::vector<GLfloat> quad_vertices{
   -1, -1, 1, 1,
   -1,  1, 1, 1,
    1, -1, 1, 1,
    1,  1, 1, 1,
 };
 
-static const GLushort quad_indices[] = {
+std::vector<GLushort> quad_indices{
   0, 2, 1, 1, 2, 3,
 };
 
@@ -80,6 +80,7 @@ Renderer::Renderer()
 , _world_program{"world", {SHADER(world_vertex, GL_VERTEX_SHADER)}}
 , _outline_program{"outline", {SHADER(outline_vertex, GL_VERTEX_SHADER),
                                SHADER(outline_fragment, GL_FRAGMENT_SHADER)}}
+, _quad_data{quad_vertices, quad_indices, GL_STATIC_DRAW}
 {
   // Should we have multiple permutation resolutions for different texture
   // sizes? Or just use several 1D textures and pack them in?
@@ -104,28 +105,7 @@ Renderer::Renderer()
   glSamplerParameteri(_sampler, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
   glSamplerParameteri(_sampler, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
   glSamplerParameteri(_sampler, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-
-  glGenBuffers(1, &_quad_vbo);
-  glBindBuffer(GL_ARRAY_BUFFER, _quad_vbo);
-  glBufferData(GL_ARRAY_BUFFER,
-               sizeof(quad_vertices), quad_vertices, GL_STATIC_DRAW);
-
-  glGenBuffers(1, &_quad_ibo);
-  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, _quad_ibo);
-  glBufferData(GL_ELEMENT_ARRAY_BUFFER,
-               sizeof(quad_indices), quad_indices, GL_STATIC_DRAW);
-
-  glGenVertexArrays(1, &_quad_vao);
-  glBindVertexArray(_quad_vao);
-
-  glEnableVertexAttribArray(0);
-  glBindBuffer(GL_ARRAY_BUFFER, _quad_vbo);
-  glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, 0, 0);
-  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, _quad_ibo);
-
-  glBindVertexArray(0);
-  glBindBuffer(GL_ARRAY_BUFFER, 0);
-  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+  _quad_data.enable_attribute(0, 4, 0, 0);
 }
 
 Renderer::~Renderer()
@@ -143,10 +123,6 @@ Renderer::~Renderer()
   glDeleteSamplers(1, &_sampler);
   glDeleteTextures(1, &_simplex_gradient_lut);
   glDeleteTextures(1, &_simplex_permutation_lut);
-
-  glDeleteVertexArrays(1, &_quad_vao);
-  glDeleteBuffers(1, &_quad_vbo);
-  glDeleteBuffers(1, &_quad_ibo);
 }
 
 void Renderer::resize(const glm::ivec2& dimensions)
@@ -281,11 +257,7 @@ void Renderer::clear_depth(uint32_t stencil_ref, uint32_t stencil_mask) const
 
   glBindFramebuffer(GL_DRAW_FRAMEBUFFER, _fbo);
   auto program = _post_program.use();
-
-  glBindVertexArray(_quad_vao);
-  glDrawElements(GL_TRIANGLES, sizeof(quad_indices) / sizeof(quad_indices[0]),
-                 GL_UNSIGNED_SHORT, 0);
-  glBindVertexArray(0);
+  _quad_data.draw();
 }
 
 void Renderer::clear_stencil(uint32_t stencil_mask) const
@@ -298,7 +270,7 @@ void Renderer::clear_stencil(uint32_t stencil_mask) const
 }
 
 void Renderer::stencil(
-    const Mesh& mesh, uint32_t stencil_ref,
+    const GlVertexData& data, uint32_t stencil_ref,
     uint32_t test_mask, uint32_t write_mask, bool depth_eq) const
 {
   compute_transform();
@@ -310,14 +282,12 @@ void Renderer::stencil(
   set_mvp_uniforms(program);
 
   glBindFramebuffer(GL_DRAW_FRAMEBUFFER, _fbo);
-  glBindVertexArray(mesh.vao());
-  glDrawElements(GL_TRIANGLES, mesh.vertex_count(), GL_UNSIGNED_SHORT, 0);
-  glBindVertexArray(0);
+  data.draw();
   glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
 }
 
-void Renderer::depth(const Mesh& mesh, uint32_t stencil_ref,
-                                       uint32_t stencil_mask) const
+void Renderer::depth(const GlVertexData& data, uint32_t stencil_ref,
+                                               uint32_t stencil_mask) const
 {
   compute_transform();
   render_settings(/* dtest */ true, /* dmask */ true, /* depth_eq */ false,
@@ -328,9 +298,7 @@ void Renderer::depth(const Mesh& mesh, uint32_t stencil_ref,
   set_mvp_uniforms(program);
 
   glBindFramebuffer(GL_DRAW_FRAMEBUFFER, _fbo);
-  glBindVertexArray(mesh.vao());
-  glDrawElements(GL_TRIANGLES, mesh.vertex_count(), GL_UNSIGNED_SHORT, 0);
-  glBindVertexArray(0);
+  data.draw();
   glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
 }
 
@@ -352,9 +320,7 @@ void Renderer::draw(const Mesh& mesh, const Player& player,
                  1, glm::value_ptr(player.get_head_position()));
 
     glBindFramebuffer(GL_DRAW_FRAMEBUFFER, _fbo);
-    glBindVertexArray(mesh.vao());
-    glDrawElements(GL_TRIANGLES, mesh.vertex_count(), GL_UNSIGNED_SHORT, 0);
-    glBindVertexArray(0);
+    mesh.visible_data().draw();
   }
 
   // TODO: this outline code shouldn't really be here. It could also do
@@ -432,51 +398,17 @@ void Renderer::draw(const Mesh& mesh, const Player& player,
     return;
   }
 
-  uint32_t outline_vbo = 0;
-  uint32_t outline_ibo = 0;
-  uint32_t outline_vao = 0;
-
-  glGenBuffers(1, &outline_vbo);
-  glGenBuffers(1, &outline_ibo);
-  glGenVertexArrays(1, &outline_vao);
-
-  glBindBuffer(GL_ARRAY_BUFFER, outline_vbo);
-  glBufferData(GL_ARRAY_BUFFER, outline_vertices.size() * sizeof(float),
-               outline_vertices.data(), GL_STREAM_DRAW);
-
-  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, outline_ibo);
-  glBufferData(GL_ELEMENT_ARRAY_BUFFER,
-               outline_indices.size() * sizeof(GLushort),
-               outline_indices.data(), GL_STREAM_DRAW);
-
-  glBindVertexArray(outline_vao);
-  glEnableVertexAttribArray(0);
-  glEnableVertexAttribArray(1);
-  glEnableVertexAttribArray(2);
-  glBindBuffer(GL_ARRAY_BUFFER, outline_vbo);
-  glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float),
-                        reinterpret_cast<void*>(sizeof(float) * 0));
-  glVertexAttribPointer(1, 1, GL_FLOAT, GL_FALSE, 5 * sizeof(float),
-                        reinterpret_cast<void*>(sizeof(float) * 3));
-  glVertexAttribPointer(2, 1, GL_FLOAT, GL_FALSE, 5 * sizeof(float),
-                        reinterpret_cast<void*>(sizeof(float) * 4));
-  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, outline_ibo);
+  GlVertexData outline_data{outline_vertices, outline_indices, GL_STREAM_DRAW};
+  outline_data.enable_attribute(0, 3, 5, 0);
+  outline_data.enable_attribute(1, 1, 5, 3);
+  outline_data.enable_attribute(2, 1, 5, 4);
 
   auto program = _outline_program.use();
   set_mvp_uniforms(program);
   glUniform3fv(program.uniform("light_source"),
                1, glm::value_ptr(player.get_head_position()));
+  outline_data.draw();
 
-  glBindVertexArray(outline_vao);
-  glDrawElements(GL_TRIANGLES, outline_indices.size(), GL_UNSIGNED_SHORT, 0);
-
-  glDeleteVertexArrays(1, &outline_vao);
-  glDeleteBuffers(1, &outline_vbo);
-  glDeleteBuffers(1, &outline_ibo);
-
-  glBindVertexArray(0);
-  glBindBuffer(GL_ARRAY_BUFFER, 0);
-  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
   glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
 }
 
@@ -509,10 +441,7 @@ void Renderer::render() const
   glBindTexture(GL_TEXTURE_2D, _fbt_intermediate ? _fbt_intermediate : _fbt);
   glBindSampler(2, _sampler);
 
-  glBindVertexArray(_quad_vao);
-  glDrawElements(GL_TRIANGLES, sizeof(quad_indices) / sizeof(quad_indices[0]),
-                 GL_UNSIGNED_SHORT, 0);
-  glBindVertexArray(0);
+  _quad_data.draw();
 }
 
 float Renderer::get_aspect_ratio() const

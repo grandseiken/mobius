@@ -187,7 +187,7 @@ void World::render_iteration(
     // Establish depth buffer for this chunk.
     uint32_t stencil_ref = combine_mask(false, entry.stencil);
     _renderer.world(entry.data.orientation, entry.data.clip_planes);
-    _renderer.depth(*entry.chunk->mesh, stencil_ref, VALUE_BITS);
+    _renderer.depth(entry.chunk->mesh->visible_data(), stencil_ref, VALUE_BITS);
     // Renderer the chunk.
     _renderer.draw(*entry.chunk->mesh, _player, stencil_ref, VALUE_BITS);
     // Render the objects in the source chunk, with the clipping and
@@ -235,7 +235,7 @@ void World::render_iteration(
       auto portal_stencil_ref = combine_mask(true, entry.stencil);
       _renderer.world(entry.data.orientation, entry.data.clip_planes);
       _renderer.stencil(
-          *portal.portal_mesh, portal_stencil_ref,
+          portal.portal_mesh->visible_data(), portal_stencil_ref,
           /* read */ VALUE_BITS, /* write */ FLAG_BITS, /* depth_eq */ false);
     }
   }
@@ -253,7 +253,7 @@ void World::render_iteration(
     _renderer.world(entry.source_data.orientation,
                     entry.source_data.clip_planes);
     _renderer.stencil(
-        *entry.source->portal_mesh, portal_stencil_ref,
+        entry.source->portal_mesh->visible_data(), portal_stencil_ref,
         /* read */ FLAG_BITS, /* write */ VALUE_BITS, /* depth_eq */ true);
   }
 

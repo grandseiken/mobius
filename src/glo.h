@@ -82,7 +82,10 @@ public:
 
 private:
   GlActiveProgram(GLuint program)
-  : program(program) {}
+  : program(program)
+  {
+    glUseProgram(program);
+  }
 
   GLuint program;
   friend struct GlProgram;
@@ -132,12 +135,70 @@ public:
 
   GlActiveProgram use() const
   {
-    glUseProgram(program);
     return {program};
   }
 
 private:
   GLuint program = 0;
+};
+
+struct GlVertexData {
+public:
+  GlVertexData(const std::vector<GLfloat>& data,
+               const std::vector<GLushort>& indices, GLuint hint)
+  : size(indices.size())
+  {
+    glGenBuffers(1, &vbo);
+    glBindBuffer(GL_ARRAY_BUFFER, vbo);
+    glBufferData(GL_ARRAY_BUFFER,
+                 sizeof(GLfloat) * data.size(), data.data(), hint);
+
+    glGenBuffers(1, &ibo);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ibo);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER,
+                 sizeof(GLushort) * indices.size(), indices.data(), hint);
+
+    glGenVertexArrays(1, &vao);
+    glBindVertexArray(vao);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ibo);
+
+    glBindVertexArray(0);
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+  }
+
+  ~GlVertexData()
+  {
+    glDeleteBuffers(1, &vbo);
+    glDeleteBuffers(1, &ibo);
+    glDeleteVertexArrays(1, &vao);
+  }
+
+  void enable_attribute(GLuint location, GLuint count,
+                        GLuint stride, GLuint offset) const
+  {
+    glBindVertexArray(vao);
+    glEnableVertexAttribArray(location);
+    glBindBuffer(GL_ARRAY_BUFFER, vbo);
+    glVertexAttribPointer(
+        location, count, GL_FLOAT, GL_FALSE, stride * sizeof(GLfloat),
+        reinterpret_cast<void*>(sizeof(float) * offset));
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    glBindVertexArray(0);
+  }
+
+  void draw() const
+  {
+    glBindVertexArray(vao);
+    glDrawElements(GL_TRIANGLES, size, GL_UNSIGNED_SHORT, 0);
+    glBindVertexArray(0);
+  }
+
+private:
+  GLuint size;
+  GLuint vbo = 0;
+  GLuint ibo = 0;
+  GLuint vao = 0;
 };
 
 #undef GLEW_CHECK

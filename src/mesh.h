@@ -1,9 +1,11 @@
 #ifndef MOBIUS_MESH_H
 #define MOBIUS_MESH_H
 
+#include "glo.h"
 #include <glm/vec3.hpp>
 #include <glm/mat4x4.hpp>
 #include <cstdint>
+#include <memory>
 #include <string>
 #include <vector>
 
@@ -25,7 +27,6 @@ public:
   Mesh();
   Mesh(const std::string& path);
   Mesh(const mobius::proto::mesh& mesh);
-  ~Mesh();
 
   struct outline_data {
     glm::vec3 a;
@@ -36,8 +37,7 @@ public:
     float hue_shift;
   };
 
-  uint32_t vao() const;
-  uint32_t vertex_count() const;
+  const GlVertexData& visible_data() const;
   const std::vector<Triangle>& physical_faces() const;
   const std::vector<glm::vec3>& physical_vertices() const;
   const std::vector<outline_data>& outlines() const;
@@ -51,11 +51,7 @@ private:
   void generate_outlines(const mobius::proto::mesh& mesh,
                          const mobius::proto::submesh& submesh);
 
-  uint32_t _visible_vertex_count = 0;
-  uint32_t _vao;
-  uint32_t _vbo;
-  uint32_t _ibo;
-
+  std::unique_ptr<GlVertexData> _visible_data;
   std::vector<Triangle> _physical_faces;
   std::vector<glm::vec3> _physical_vertices;
   std::vector<outline_data> _outline_data;

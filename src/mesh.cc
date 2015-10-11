@@ -61,58 +61,17 @@ Mesh::Mesh(const mobius::proto::mesh& mesh)
     generate_data(visible_vertices, visible_indices, mesh, mesh.submesh(i));
     generate_outlines(mesh, mesh.submesh(i));
   }
-  _visible_vertex_count = visible_indices.size();
-
-  glGenBuffers(1, &_vbo);
-  glBindBuffer(GL_ARRAY_BUFFER, _vbo);
-  glBufferData(GL_ARRAY_BUFFER, sizeof(float) * visible_vertices.size(),
-               visible_vertices.data(), GL_STATIC_DRAW);
-
-  glGenBuffers(1, &_ibo);
-  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, _ibo);
-  glBufferData(GL_ELEMENT_ARRAY_BUFFER,
-               sizeof(GLushort) * visible_indices.size(),
-               visible_indices.data(), GL_STATIC_DRAW);
-
-  glGenVertexArrays(1, &_vao);
-  glBindVertexArray(_vao);
-
-  glEnableVertexAttribArray(0);
-  glEnableVertexAttribArray(1);
-  glEnableVertexAttribArray(2);
-  glEnableVertexAttribArray(3);
-
-  glBindBuffer(GL_ARRAY_BUFFER, _vbo);
-  glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float),
-                        reinterpret_cast<void*>(sizeof(float) * 0));
-  glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float),
-                        reinterpret_cast<void*>(sizeof(float) * 3));
-  glVertexAttribPointer(2, 1, GL_FLOAT, GL_FALSE, 8 * sizeof(float),
-                        reinterpret_cast<void*>(sizeof(float) * 6));
-  glVertexAttribPointer(3, 1, GL_FLOAT, GL_FALSE, 8 * sizeof(float),
-                        reinterpret_cast<void*>(sizeof(float) * 7));
-  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, _ibo);
-  glBindVertexArray(0);
-
-  glBindBuffer(GL_ARRAY_BUFFER, 0);
-  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+  _visible_data.reset(
+      new GlVertexData{visible_vertices, visible_indices, GL_STATIC_DRAW});
+  _visible_data->enable_attribute(0, 3, 8, 0);
+  _visible_data->enable_attribute(1, 3, 8, 3);
+  _visible_data->enable_attribute(2, 1, 8, 6);
+  _visible_data->enable_attribute(3, 1, 8, 7);
 }
 
-Mesh::~Mesh()
+const GlVertexData& Mesh::visible_data() const
 {
-  glDeleteBuffers(1, &_vbo);
-  glDeleteBuffers(1, &_ibo);
-  glDeleteVertexArrays(1, &_vao);
-}
-
-uint32_t Mesh::vao() const
-{
-  return _vao;
-}
-
-uint32_t Mesh::vertex_count() const
-{
-  return _visible_vertex_count;
+  return *_visible_data;
 }
 
 const std::vector<Triangle>& Mesh::physical_faces() const
