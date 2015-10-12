@@ -63,7 +63,8 @@ void main()
   float source_hue = source.y;
   float source_hue_shift = source.z;
 
-  float dynamic_grain_amount = grain_amount * (1 - source_intensity);
+  float dynamic_grain_amount =
+      grain_amount * pow(1 - source_intensity, 3. / 4.);
   float value = v * dynamic_grain_amount +
       (1 - dynamic_grain_amount) * source_intensity;
 
