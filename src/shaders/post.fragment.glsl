@@ -12,7 +12,7 @@ uniform sampler1D simplex_permutation_lut;
 uniform bool simplex_use_permutation_lut;
 
 // [0, 1].
-const float grain_amount = 1. / 24;
+const float grain_amount = 1. / 32;
 // [-50, 50].
 const float saturation = -12.;
 
@@ -59,14 +59,14 @@ void main()
 
   const float scale = .85;
   vec4 source = texture(read_framebuffer, gl_FragCoord.xy / dimensions);
-  float source_intensity = scale * gamma_correct(source.x);
+  float source_intensity = source.x;
   float source_hue = source.y;
   float source_hue_shift = source.z;
 
   float dynamic_grain_amount =
-      grain_amount * pow(1 - source_intensity, 3. / 4.);
+      grain_amount * pow(1 - source_intensity, 2. / 3.);
   float value = v * dynamic_grain_amount +
-      (1 - dynamic_grain_amount) * source_intensity;
+      (1 - dynamic_grain_amount) * scale * gamma_correct(source_intensity);
 
   output_colour =
       vec4(ramp_colour(value, source_hue, source_hue_shift), 1.);
