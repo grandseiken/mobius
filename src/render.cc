@@ -110,16 +110,6 @@ Renderer::Renderer()
 
 Renderer::~Renderer()
 {
-  if (_fbo) {
-    glDeleteFramebuffers(1, &_fbo);
-    glDeleteTextures(1, &_fbt);
-    glDeleteTextures(1, &_fbd);
-  }
-  if (_fbo_intermediate) {
-    glDeleteFramebuffers(1, &_fbo_intermediate);
-    glDeleteTextures(1, &_fbt_intermediate);
-  }
-
   glDeleteSamplers(1, &_sampler);
   glDeleteTextures(1, &_simplex_gradient_lut);
   glDeleteTextures(1, &_simplex_permutation_lut);
@@ -130,74 +120,13 @@ void Renderer::resize(const glm::ivec2& dimensions)
   _dimensions = dimensions;
   _vp_transform_dirty = true;
 
-  if (_fbo) {
-    glDeleteFramebuffers(1, &_fbo);
-    glDeleteTextures(1, &_fbt);
-    glDeleteTextures(1, &_fbd);
-  }
-  if (_fbo_intermediate) {
-    glDeleteFramebuffers(1, &_fbo_intermediate);
-    glDeleteTextures(1, &_fbt_intermediate);
-  }
-  glGenTextures(1, &_fbt);
-  glGenTextures(1, &_fbd);
-  glGenFramebuffers(1, &_fbo);
-
-  auto samples = 0;
-  glGetIntegerv(GL_MAX_SAMPLES, &samples);
-
-  if (samples > 1) {
-    glGenTextures(1, &_fbt_intermediate);
-    glGenFramebuffers(1, &_fbo_intermediate);
-    glBindTexture(GL_TEXTURE_2D, _fbt_intermediate);
-    glTexImage2D(
-        GL_TEXTURE_2D, 0, GL_RGBA8,
-        _dimensions.x, _dimensions.y, 0,
-        GL_RGBA, GL_UNSIGNED_INT_8_8_8_8_REV, nullptr);
-    glBindFramebuffer(GL_FRAMEBUFFER, _fbo_intermediate);
-    glFramebufferTexture2D(
-        GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D,
-        _fbt_intermediate, 0);
-
-    if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
-      std::cerr << "Intermediate framebuffer is not complete\n";
-    }
-
-    glBindTexture(GL_TEXTURE_2D_MULTISAMPLE, _fbt);
-    glTexImage2DMultisample(
-        GL_TEXTURE_2D_MULTISAMPLE, samples, GL_RGBA8,
-        _dimensions.x, _dimensions.y, false);
-    glBindTexture(GL_TEXTURE_2D_MULTISAMPLE, _fbd);
-    glTexImage2DMultisample(
-        GL_TEXTURE_2D_MULTISAMPLE, samples, GL_DEPTH24_STENCIL8,
-        _dimensions.x, _dimensions.y, false);
+  _framebuffer.reset(new GlFramebuffer{dimensions, true, true});
+  if (_framebuffer->is_multisampled()) {
+    _framebuffer_intermediate.reset(
+        new GlFramebuffer{dimensions, false, false});
   } else {
-    _fbo_intermediate = 0;
-    _fbt_intermediate = 0;
-
-    glBindTexture(GL_TEXTURE_2D, _fbt);
-    glTexImage2D(
-        GL_TEXTURE_2D, 0, GL_RGBA8,
-        _dimensions.x, _dimensions.y, 0,
-        GL_RGBA, GL_UNSIGNED_INT_8_8_8_8_REV, nullptr);
-    glBindTexture(GL_TEXTURE_2D, _fbd);
-    glTexImage2D(
-        GL_TEXTURE_2D, 0, GL_DEPTH24_STENCIL8,
-        _dimensions.x, _dimensions.y, 0,
-        GL_DEPTH_STENCIL, GL_UNSIGNED_INT_24_8, nullptr);
+    _framebuffer_intermediate.reset();
   }
-
-  auto target = samples > 1 ? GL_TEXTURE_2D_MULTISAMPLE : GL_TEXTURE_2D;
-  glBindFramebuffer(GL_FRAMEBUFFER, _fbo);
-  glFramebufferTexture2D(
-      GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, target, _fbt, 0);
-  glFramebufferTexture2D(
-      GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, target, _fbd, 0);
-
-  if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
-    std::cerr << "Framebuffer is not complete\n";
-  }
-  glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 
 void Renderer::perspective(float fov, float z_near, float z_far)
@@ -237,7 +166,7 @@ void Renderer::clear() const
   glCullFace(GL_BACK);
   glFrontFace(GL_CCW);
 
-  glBindFramebuffer(GL_DRAW_FRAMEBUFFER, _fbo);
+  auto draw = _framebuffer->draw();
   glEnable(GL_MULTISAMPLE);
   glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
   glDepthMask(GL_TRUE);
@@ -246,7 +175,6 @@ void Renderer::clear() const
   glClearDepth(1);
   glClearStencil(0x00);
   glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
-  glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
 }
 
 void Renderer::clear_depth(uint32_t stencil_ref, uint32_t stencil_mask) const
@@ -255,18 +183,17 @@ void Renderer::clear_depth(uint32_t stencil_ref, uint32_t stencil_mask) const
                   /* cmask */ false, /* blend */ false);
   stencil_settings(stencil_ref, stencil_mask, 0x00);
 
-  glBindFramebuffer(GL_DRAW_FRAMEBUFFER, _fbo);
   auto program = _post_program.use();
+  auto draw = _framebuffer->draw();
   _quad_data.draw();
 }
 
 void Renderer::clear_stencil(uint32_t stencil_mask) const
 {
-  glBindFramebuffer(GL_DRAW_FRAMEBUFFER, _fbo);
+  auto draw = _framebuffer->draw();
   glStencilMask(stencil_mask);
   glClearStencil(0x00);
   glClear(GL_STENCIL_BUFFER_BIT);
-  glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
 }
 
 void Renderer::stencil(
@@ -279,11 +206,10 @@ void Renderer::stencil(
   stencil_settings(stencil_ref, test_mask, write_mask);
 
   auto program = _world_program.use();
-  set_mvp_uniforms(program);
+  auto draw = _framebuffer->draw();
 
-  glBindFramebuffer(GL_DRAW_FRAMEBUFFER, _fbo);
+  set_mvp_uniforms(program);
   data.draw();
-  glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
 }
 
 void Renderer::depth(const GlVertexData& data, uint32_t stencil_ref,
@@ -295,11 +221,10 @@ void Renderer::depth(const GlVertexData& data, uint32_t stencil_ref,
   stencil_settings(stencil_ref, stencil_mask, 0x00);
 
   auto program = _world_program.use();
-  set_mvp_uniforms(program);
+  auto draw = _framebuffer->draw();
 
-  glBindFramebuffer(GL_DRAW_FRAMEBUFFER, _fbo);
+  set_mvp_uniforms(program);
   data.draw();
-  glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
 }
 
 void Renderer::draw(const Mesh& mesh, const Player& player,
@@ -312,6 +237,8 @@ void Renderer::draw(const Mesh& mesh, const Player& player,
 
   {
     auto program = _draw_program.use();
+    auto draw = _framebuffer->draw();
+
     set_simplex_uniforms(program);
     set_mvp_uniforms(program);
     glUniformMatrix3fv(program.uniform("normal_transform"),
@@ -319,7 +246,6 @@ void Renderer::draw(const Mesh& mesh, const Player& player,
     glUniform3fv(program.uniform("light_source"),
                  1, glm::value_ptr(player.get_head_position()));
 
-    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, _fbo);
     mesh.visible_data().draw();
   }
 
@@ -404,12 +330,11 @@ void Renderer::draw(const Mesh& mesh, const Player& player,
   outline_data.enable_attribute(2, 1, 5, 4);
 
   auto program = _outline_program.use();
+  auto draw = _framebuffer->draw();
   set_mvp_uniforms(program);
   glUniform3fv(program.uniform("light_source"),
                1, glm::value_ptr(player.get_head_position()));
   outline_data.draw();
-
-  glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
 }
 
 void Renderer::render() const
@@ -418,27 +343,27 @@ void Renderer::render() const
   render_settings(/* dtest */ false, /* dmask */ false, /* depth_eq */ false,
                   /* cmask */ true, /* blend */ false);
 
-  if (_fbo_intermediate) {
-    glBindFramebuffer(GL_READ_FRAMEBUFFER, _fbo);
-    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, _fbo_intermediate);
+  glm::vec2 dimensions = _dimensions;
+  if (_framebuffer_intermediate) {
+    auto read = _framebuffer->read();
+    auto draw = _framebuffer_intermediate->draw();
     glDrawBuffer(GL_BACK);
-    glBlitFramebuffer(0, 0, _dimensions.x, _dimensions.y,
-                      0, 0, _dimensions.x, _dimensions.y,
+    glBlitFramebuffer(0, 0, dimensions.x, dimensions.y,
+                      0, 0, dimensions.x, dimensions.y,
                       GL_COLOR_BUFFER_BIT, GL_NEAREST);
-    glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
   }
 
-  glm::vec2 dimensions = _dimensions;
 
-  glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
   auto program = _post_program.use();
   glUniform1f(program.uniform("frame"), _frame);
   glUniform2fv(program.uniform("dimensions"), 1, glm::value_ptr(dimensions));
   set_simplex_uniforms(program);
 
+  auto texture = _framebuffer_intermediate ?
+      _framebuffer_intermediate->texture() : _framebuffer->texture();
   glUniform1i(program.uniform("read_framebuffer"), 2);
   glActiveTexture(GL_TEXTURE2);
-  glBindTexture(GL_TEXTURE_2D, _fbt_intermediate ? _fbt_intermediate : _fbt);
+  glBindTexture(GL_TEXTURE_2D, texture);
   glBindSampler(2, _sampler);
 
   _quad_data.draw();

@@ -6,8 +6,9 @@
 #include <glm/vec3.hpp>
 #include <glm/mat3x3.hpp>
 #include <glm/mat4x4.hpp>
-#include <vector>
 #include <cstdint>
+#include <memory>
+#include <vector>
 
 class Mesh;
 class Player;
@@ -48,11 +49,8 @@ private:
   void set_simplex_uniforms(const GlActiveProgram& program) const;
 
   GlInit _gl_init;
-  uint32_t _fbo = 0;
-  uint32_t _fbt = 0;
-  uint32_t _fbd = 0;
-  uint32_t _fbo_intermediate = 0;
-  uint32_t _fbt_intermediate = 0;
+  std::unique_ptr<GlFramebuffer> _framebuffer;
+  std::unique_ptr<GlFramebuffer> _framebuffer_intermediate;
 
   GlProgram _draw_program;
   GlProgram _quad_program;

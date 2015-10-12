@@ -2,6 +2,7 @@
 #define MOBIUS_GLO_H
 
 #include <GL/glew.h>
+#include <glm/vec2.hpp>
 #include <cstdint>
 #include <iostream>
 #include <memory>
@@ -140,6 +141,128 @@ public:
 
 private:
   GLuint program = 0;
+};
+
+struct GlActiveFramebuffer {
+public:
+  ~GlActiveFramebuffer()
+  {
+    if (read) {
+      glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
+    } else {
+      glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
+    }
+  }
+
+private:
+  GlActiveFramebuffer(GLuint fbo, bool read)
+  : read(read) {
+    if (read) {
+      glBindFramebuffer(GL_READ_FRAMEBUFFER, fbo);
+    } else {
+      glBindFramebuffer(GL_DRAW_FRAMEBUFFER, fbo);
+    }
+  }
+
+  bool read;
+  friend struct GlFramebuffer;
+};
+
+struct GlFramebuffer {
+public:
+  GlFramebuffer(const glm::ivec2& dimensions,
+                bool depth_stencil, bool attempt_multisampling)
+  : multisampled{false}
+  {
+    GLint max_samples = 0;
+    glGetIntegerv(GL_MAX_SAMPLES, &max_samples);
+    multisampled = max_samples > 1 && attempt_multisampling;
+
+    glGenFramebuffers(1, &fbo);
+    glGenTextures(1, &fbt);
+    if (depth_stencil) {
+      glGenTextures(1, &fbd);
+    }
+
+    if (multisampled) {
+      glBindTexture(GL_TEXTURE_2D_MULTISAMPLE, fbt);
+      glTexImage2DMultisample(
+          GL_TEXTURE_2D_MULTISAMPLE, max_samples, GL_RGBA8,
+          dimensions.x, dimensions.y, false);
+
+      if (depth_stencil) {
+        glBindTexture(GL_TEXTURE_2D_MULTISAMPLE, fbd);
+        glTexImage2DMultisample(
+            GL_TEXTURE_2D_MULTISAMPLE, max_samples, GL_DEPTH24_STENCIL8,
+            dimensions.x, dimensions.y, false);
+      }
+    } else {
+      glBindTexture(GL_TEXTURE_2D, fbt);
+      glTexImage2D(
+          GL_TEXTURE_2D, 0, GL_RGBA8,
+          dimensions.x, dimensions.y, 0,
+          GL_RGBA, GL_UNSIGNED_INT_8_8_8_8_REV, nullptr);
+
+      if (depth_stencil) {
+        glBindTexture(GL_TEXTURE_2D, fbd);
+        glTexImage2D(
+            GL_TEXTURE_2D, 0, GL_DEPTH24_STENCIL8,
+            dimensions.x, dimensions.y, 0,
+            GL_DEPTH_STENCIL, GL_UNSIGNED_INT_24_8, nullptr);
+      }
+    }
+
+     auto target = multisampled ? GL_TEXTURE_2D_MULTISAMPLE : GL_TEXTURE_2D;
+    glBindFramebuffer(GL_FRAMEBUFFER, fbo);
+    glFramebufferTexture2D(
+        GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, fbt, 0);
+    if (depth_stencil) {
+      glFramebufferTexture2D(
+          GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, target, fbd, 0);
+    }
+
+    if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
+      std::cerr << "Intermediate framebuffer is not complete\n";
+    }
+    glBindTexture(GL_TEXTURE_2D_MULTISAMPLE, 0);
+    glBindTexture(GL_TEXTURE_2D, 0);
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+  }
+
+  ~GlFramebuffer()
+  {
+    glDeleteFramebuffers(1, &fbo);
+    glDeleteTextures(1, &fbt);
+    if (fbd) {
+      glDeleteTextures(1, &fbd);
+    }
+  }
+
+  bool is_multisampled() const
+  {
+    return multisampled;
+  }
+
+  GlActiveFramebuffer draw() const
+  {
+    return {fbo, false};
+  }
+
+  GlActiveFramebuffer read() const
+  {
+    return {fbo, true};
+  }
+
+  GLuint texture() const
+  {
+    return fbt;
+  }
+
+private:
+  bool multisampled;
+  GLuint fbo = 0;
+  GLuint fbt = 0;
+  GLuint fbd = 0;
 };
 
 struct GlVertexData {
