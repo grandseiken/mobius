@@ -69,6 +69,107 @@ private:
   friend struct GlProgram;
 };
 
+struct GlActiveTexture {
+public:
+  ~GlActiveTexture()
+  {
+    glBindTexture(target, 0);
+  }
+
+private:
+  GlActiveTexture(GLuint texture, GLuint target)
+  : target(target)
+  {
+    glBindTexture(target, texture);
+  }
+
+  GLuint target;
+  friend struct GlTexture;
+};
+
+struct GlTexture {
+public:
+  GlTexture()
+  {
+    glGenTextures(1, &texture);
+    glGenSamplers(1, &sampler);
+
+    glSamplerParameteri(sampler, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glSamplerParameteri(sampler, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glSamplerParameteri(sampler, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glSamplerParameteri(sampler, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+  }
+
+  GlActiveTexture bind() const
+  {
+    return {texture, target};
+  }
+
+  void create_1d(GLsizei width, GLuint components, const float* data)
+  {
+    target = GL_TEXTURE_1D;
+    auto active = bind();
+    auto internalFormat = components == 3 ? GL_RGB8 :
+                          components == 1 ? GL_R32F : 0;
+    auto format = components == 3 ? GL_RGB :
+                  components == 1 ? GL_RED : 0;
+    glTexImage1D(target, 0, internalFormat, width, 0, format, GL_FLOAT, data);
+  }
+
+  void create_rgba(const glm::ivec2& dimensions, GLint samples = 1)
+  {
+    if (samples > 1) {
+      target = GL_TEXTURE_2D_MULTISAMPLE;
+      auto active = bind();
+      glTexImage2DMultisample(
+          target, samples, GL_RGBA8,
+          dimensions.x, dimensions.y, false);
+    } else {
+      target = GL_TEXTURE_2D;
+      auto active = bind();
+      glTexImage2D(
+          GL_TEXTURE_2D, 0, GL_RGBA8,
+          dimensions.x, dimensions.y, 0,
+          GL_RGBA, GL_UNSIGNED_INT_8_8_8_8_REV, nullptr);
+    }
+  }
+
+  void create_depth_stencil(const glm::ivec2& dimensions, GLint samples = 1)
+  {
+    if (samples > 1) {
+      target = GL_TEXTURE_2D_MULTISAMPLE;
+      auto active = bind();
+      glTexImage2DMultisample(
+          target, samples, GL_DEPTH24_STENCIL8,
+          dimensions.x, dimensions.y, false);
+    } else {
+      target = GL_TEXTURE_2D;
+      auto active = bind();
+      glTexImage2D(
+          target, 0, GL_DEPTH24_STENCIL8,
+          dimensions.x, dimensions.y, 0,
+          GL_DEPTH_STENCIL, GL_UNSIGNED_INT_24_8, nullptr);
+    }
+  }
+
+  void attach_to_framebuffer(GLuint attachment) const
+  {
+    glFramebufferTexture2D(GL_FRAMEBUFFER, attachment, target, texture, 0);
+  }
+
+  ~GlTexture()
+  {
+    glDeleteSamplers(1, &sampler);
+    glDeleteTextures(1, &texture);
+  }
+
+private:
+  GLuint texture = 0;
+  GLuint sampler = 0;
+  GLuint target = 0;
+  friend struct GlActiveProgram;
+};
+
 struct GlActiveProgram {
 public:
   ~GlActiveProgram()
@@ -81,6 +182,15 @@ public:
     return glGetUniformLocation(program, name.c_str());
   }
 
+  void uniform_texture(const std::string& name, const GlTexture& texture) const
+  {
+    glUniform1i(uniform(name), texture_index);
+    glActiveTexture(GL_TEXTURE0 + texture_index);
+    glBindTexture(texture.target, texture.texture);
+    glBindSampler(texture_index, texture.sampler);
+    ++texture_index;
+  }
+
 private:
   GlActiveProgram(GLuint program)
   : program(program)
@@ -89,6 +199,7 @@ private:
   }
 
   GLuint program;
+  mutable GLuint texture_index = 0;
   friend struct GlProgram;
 };
 
@@ -174,68 +285,32 @@ public:
                 bool depth_stencil, bool attempt_multisampling)
   : multisampled{false}
   {
-    GLint max_samples = 0;
-    glGetIntegerv(GL_MAX_SAMPLES, &max_samples);
-    multisampled = max_samples > 1 && attempt_multisampling;
-
-    glGenFramebuffers(1, &fbo);
-    glGenTextures(1, &fbt);
-    if (depth_stencil) {
-      glGenTextures(1, &fbd);
+    GLint samples = 1;
+    if (attempt_multisampling) {
+      glGetIntegerv(GL_MAX_SAMPLES, &samples);
     }
+    multisampled = samples > 1;
 
-    if (multisampled) {
-      glBindTexture(GL_TEXTURE_2D_MULTISAMPLE, fbt);
-      glTexImage2DMultisample(
-          GL_TEXTURE_2D_MULTISAMPLE, max_samples, GL_RGBA8,
-          dimensions.x, dimensions.y, false);
+    glGenFramebuffers(1, &framebuffer);
+    glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
 
-      if (depth_stencil) {
-        glBindTexture(GL_TEXTURE_2D_MULTISAMPLE, fbd);
-        glTexImage2DMultisample(
-            GL_TEXTURE_2D_MULTISAMPLE, max_samples, GL_DEPTH24_STENCIL8,
-            dimensions.x, dimensions.y, false);
-      }
-    } else {
-      glBindTexture(GL_TEXTURE_2D, fbt);
-      glTexImage2D(
-          GL_TEXTURE_2D, 0, GL_RGBA8,
-          dimensions.x, dimensions.y, 0,
-          GL_RGBA, GL_UNSIGNED_INT_8_8_8_8_REV, nullptr);
-
-      if (depth_stencil) {
-        glBindTexture(GL_TEXTURE_2D, fbd);
-        glTexImage2D(
-            GL_TEXTURE_2D, 0, GL_DEPTH24_STENCIL8,
-            dimensions.x, dimensions.y, 0,
-            GL_DEPTH_STENCIL, GL_UNSIGNED_INT_24_8, nullptr);
-      }
-    }
-
-     auto target = multisampled ? GL_TEXTURE_2D_MULTISAMPLE : GL_TEXTURE_2D;
-    glBindFramebuffer(GL_FRAMEBUFFER, fbo);
-    glFramebufferTexture2D(
-        GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, fbt, 0);
+    rgba_texture.create_rgba(dimensions, samples);
+    rgba_texture.attach_to_framebuffer(GL_COLOR_ATTACHMENT0);
     if (depth_stencil) {
-      glFramebufferTexture2D(
-          GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, target, fbd, 0);
+      depth_stencil_texture.reset(new GlTexture);
+      depth_stencil_texture->create_depth_stencil(dimensions, samples);
+      depth_stencil_texture->attach_to_framebuffer(GL_DEPTH_STENCIL_ATTACHMENT);
     }
 
     if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
       std::cerr << "Intermediate framebuffer is not complete\n";
     }
-    glBindTexture(GL_TEXTURE_2D_MULTISAMPLE, 0);
-    glBindTexture(GL_TEXTURE_2D, 0);
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
   }
 
   ~GlFramebuffer()
   {
-    glDeleteFramebuffers(1, &fbo);
-    glDeleteTextures(1, &fbt);
-    if (fbd) {
-      glDeleteTextures(1, &fbd);
-    }
+    glDeleteFramebuffers(1, &framebuffer);
   }
 
   bool is_multisampled() const
@@ -245,24 +320,24 @@ public:
 
   GlActiveFramebuffer draw() const
   {
-    return {fbo, false};
+    return {framebuffer, false};
   }
 
   GlActiveFramebuffer read() const
   {
-    return {fbo, true};
+    return {framebuffer, true};
   }
 
-  GLuint texture() const
+  const GlTexture& texture() const
   {
-    return fbt;
+    return rgba_texture;
   }
 
 private:
   bool multisampled;
-  GLuint fbo = 0;
-  GLuint fbt = 0;
-  GLuint fbd = 0;
+  GLuint framebuffer = 0;
+  GlTexture rgba_texture;
+  std::unique_ptr<GlTexture> depth_stencil_texture;
 };
 
 struct GlVertexData {

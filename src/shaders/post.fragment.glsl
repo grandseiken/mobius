@@ -12,7 +12,7 @@ uniform sampler1D simplex_permutation_lut;
 uniform bool simplex_use_permutation_lut;
 
 // [0, 1].
-const float grain_amount = 1. / 32;
+const float grain_amount = 1. / 24;
 // [-50, 50].
 const float saturation = -12.;
 
@@ -63,8 +63,7 @@ void main()
   float source_hue = source.y;
   float source_hue_shift = source.z;
 
-  float dynamic_grain_amount =
-      grain_amount * pow(1 - source_intensity, 2. / 3.);
+  float dynamic_grain_amount = grain_amount * (1 - source_intensity);
   float value = v * dynamic_grain_amount +
       (1 - dynamic_grain_amount) * scale * gamma_correct(source_intensity);
 

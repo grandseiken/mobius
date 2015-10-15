@@ -86,33 +86,12 @@ Renderer::Renderer()
   // sizes? Or just use several 1D textures and pack them in?
   glGetIntegerv(GL_MAX_TEXTURE_SIZE, &_max_texture_size);
 
-  glGenTextures(1, &_simplex_gradient_lut);
-  glBindTexture(GL_TEXTURE_1D, _simplex_gradient_lut);
-  glTexImage1D(
-      GL_TEXTURE_1D, 0, GL_RGB8,
-      ARRAY_LENGTH(gen_simplex_gradient_lut) / 3,
-      0, GL_RGB, GL_FLOAT, gen_simplex_gradient_lut);
-
-  glGenTextures(1, &_simplex_permutation_lut);
-  glBindTexture(GL_TEXTURE_1D, _simplex_permutation_lut);
-  glTexImage1D(
-      GL_TEXTURE_1D, 0, GL_R32F,
-      ARRAY_LENGTH(gen_simplex_permutation_lut),
-      0, GL_RED, GL_FLOAT, gen_simplex_permutation_lut);
-
-  glGenSamplers(1, &_sampler);
-  glSamplerParameteri(_sampler, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-  glSamplerParameteri(_sampler, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-  glSamplerParameteri(_sampler, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-  glSamplerParameteri(_sampler, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+  _simplex_gradient_lut.create_1d(
+      ARRAY_LENGTH(gen_simplex_gradient_lut) / 3, 3, gen_simplex_gradient_lut);
+  _simplex_permutation_lut.create_1d(
+      ARRAY_LENGTH(gen_simplex_permutation_lut), 1,
+      gen_simplex_permutation_lut);
   _quad_data.enable_attribute(0, 4, 0, 0);
-}
-
-Renderer::~Renderer()
-{
-  glDeleteSamplers(1, &_sampler);
-  glDeleteTextures(1, &_simplex_gradient_lut);
-  glDeleteTextures(1, &_simplex_permutation_lut);
 }
 
 void Renderer::resize(const glm::ivec2& dimensions)
@@ -359,13 +338,9 @@ void Renderer::render() const
   glUniform2fv(program.uniform("dimensions"), 1, glm::value_ptr(dimensions));
   set_simplex_uniforms(program);
 
-  auto texture = _framebuffer_intermediate ?
+  const auto& texture = _framebuffer_intermediate ?
       _framebuffer_intermediate->texture() : _framebuffer->texture();
-  glUniform1i(program.uniform("read_framebuffer"), 2);
-  glActiveTexture(GL_TEXTURE2);
-  glBindTexture(GL_TEXTURE_2D, texture);
-  glBindSampler(2, _sampler);
-
+  program.uniform_texture("read_framebuffer", texture);
   _quad_data.draw();
 }
 
@@ -426,14 +401,6 @@ void Renderer::set_simplex_uniforms(const GlActiveProgram& program) const
       program.uniform("simplex_use_permutation_lut"),
       uint32_t(_max_texture_size) >= ARRAY_LENGTH(gen_simplex_permutation_lut));
 
-  glUniform1i(program.uniform("simplex_gradient_lut"), 0);
-  glActiveTexture(GL_TEXTURE0);
-  glBindTexture(GL_TEXTURE_1D, _simplex_gradient_lut);
-  glBindSampler(0, _sampler);
-
-  glUniform1i(program.uniform("simplex_permutation_lut"), 1);
-  glActiveTexture(GL_TEXTURE1);
-  glBindTexture(GL_TEXTURE_1D, _simplex_permutation_lut);
-  glBindSampler(1, _sampler);
-
+  program.uniform_texture("simplex_gradient_lut", _simplex_gradient_lut);
+  program.uniform_texture("simplex_permutation_lut", _simplex_permutation_lut);
 }

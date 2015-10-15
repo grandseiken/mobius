@@ -16,7 +16,6 @@ class Player;
 class Renderer {
 public:
   Renderer();
-  ~Renderer();
 
   typedef std::pair<glm::vec3, glm::vec3> plane;
   void resize(const glm::ivec2& dimensions);
@@ -58,9 +57,8 @@ private:
   GlProgram _world_program;
   GlProgram _outline_program;
 
-  uint32_t _simplex_gradient_lut = 0;
-  uint32_t _simplex_permutation_lut = 0;
-  uint32_t _sampler = 0;
+  GlTexture _simplex_gradient_lut;
+  GlTexture _simplex_permutation_lut;
 
   int32_t _max_texture_size = 0;
   mutable uint32_t _frame = 0;
