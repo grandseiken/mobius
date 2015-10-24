@@ -4,9 +4,6 @@
 [submodule "dependencies/sfml"]
 	path = dependencies/sfml
 	url = https://github.com/LaurentGomila/sfml.git
-[submodule "dependencies/makelib"]
-	path = dependencies/makelib
-	url = https://github.com/grandseiken/makelib.git
 [submodule "dependencies/glm"]
 	path = dependencies/glm
 	url = https://github.com/g-truc/glm.git

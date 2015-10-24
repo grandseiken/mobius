@@ -1,7 +1,13 @@
-dependencies/protobuf
-dependencies/sfml
-dependencies/*.build
+dependencies
 gen
+bin
+lib
 Debug
 Release
+RelWithDebInfo
+MinSizeRel
+CMakeCache.txt
+CMakeFiles
+cmake_install.cmake
+Makefile
 *.swp
