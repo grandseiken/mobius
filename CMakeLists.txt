@@ -3,6 +3,7 @@ cmake_minimum_required(VERSION 2.6)
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib")
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib")
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin")
+set(GENFILES_DIRECTORY "${CMAKE_BINARY_DIR}/gen")
 # Add dependencies.
 add_subdirectory(dependencies)
 
@@ -12,11 +13,7 @@ if(NOT MSVC)
  set(CMAKE_CXX_FLAGS ${CMAKE_CXX_FLAGS} -std=c++11)
 endif()
 
-set(GENFILES_DIRECTORY "${CMAKE_BINARY_DIR}/gen")
-set(MOBIUS_TOOL_OUTPUTS "${GENFILES_DIRECTORY}/tools/simplex_lut.h")
-set(MOBIUS_PROTO_OUTPUTS
-  "${GENFILES_DIRECTORY}/mobius.pb.cc"
-  "${GENFILES_DIRECTORY}/mobius.pb.h")
+# Directories and globs.
 file(GLOB MOBIUS_SHADER_INCLUDE_FILES
      RELATIVE ${CMAKE_SOURCE_DIR} "src/shaders/*.glsl.h")
 file(GLOB MOBIUS_SHADER_FILES
@@ -26,58 +23,19 @@ file(GLOB MOBIUS_SOURCE_FILES
 file(GLOB MOBIUS_BLEND_FILES
      RELATIVE "${CMAKE_SOURCE_DIR}/assets" "assets/*.world.blend")
 
+# Tool-generated source files.
+set(MOBIUS_TOOL_OUTPUTS "${GENFILES_DIRECTORY}/tools/simplex_lut.h")
 add_executable(simplex_lut EXCLUDE_FROM_ALL src/tools/simplex_lut.cc)
 add_custom_command(
-  OUTPUT "${GENFILES_DIRECTORY}/tools/simplex_lut.h"
+  OUTPUT ${MOBIUS_TOOL_OUTPUTS}
   COMMAND ${CMAKE_COMMAND} -E make_directory "${GENFILES_DIRECTORY}/tools"
-  COMMAND simplex_lut > "${GENFILES_DIRECTORY}/tools/simplex_lut.h"
+  COMMAND simplex_lut > ${MOBIUS_TOOL_OUTPUTS}
   DEPENDS simplex_lut VERBATIM)
 
-add_custom_command(
-  OUTPUT ${MOBIUS_PROTO_OUTPUTS}
-  COMMAND ${CMAKE_COMMAND} -E make_directory ${GENFILES_DIRECTORY}
-  COMMAND protoc src/mobius.proto
-  --proto_path=src --cpp_out=${GENFILES_DIRECTORY}
-  VERBATIM)
-
-set(MOBIUS_DATA_OUTPUTS
-  "${GENFILES_DIRECTORY}/data/demo.world.pb"
-  "${GENFILES_DIRECTORY}/data/player.mesh.pb")
-add_custom_command(
-  OUTPUT "${GENFILES_DIRECTORY}/data/demo.world.pb"
-  COMMAND ${CMAKE_COMMAND} -E make_directory "${GENFILES_DIRECTORY}/data"
-  COMMAND cat src/data/demo.world.pb | bin/protoc --proto_path=src
-          --encode=mobius.proto.world src/mobius.proto >
-          "${GENFILES_DIRECTORY}/data/demo.world.pb"
-  DEPENDS protoc src/data/demo.world.pb VERBATIM)
-add_custom_command(
-  OUTPUT "${GENFILES_DIRECTORY}/data/player.mesh.pb"
-  COMMAND ${CMAKE_COMMAND} -E make_directory "${GENFILES_DIRECTORY}/data"
-  COMMAND cat src/data/player.mesh.pb | bin/protoc --proto_path=src
-          --encode=mobius.proto.mesh src/mobius.proto >
-          "${GENFILES_DIRECTORY}/data/player.mesh.pb"
-  DEPENDS protoc src/data/player.mesh.pb VERBATIM)
-
-foreach(BLEND_FILE ${MOBIUS_BLEND_FILES})
-  string(REGEX REPLACE "\\.[^.]*$" "" BARENAME ${BLEND_FILE})
-  set(INPUT_FILE "assets/${BLEND_FILE}")
-  set(INTERMEDIATE_FILE "${GENFILES_DIRECTORY}/${BLEND_FILE}.pb")
-  set(OUTPUT_FILE "${GENFILES_DIRECTORY}/data/${BARENAME}.pb")
-  list(APPEND MOBIUS_DATA_OUTPUTS ${OUTPUT_FILE})
-
-  add_custom_command(
-    OUTPUT ${OUTPUT_FILE}
-    COMMAND ${CMAKE_COMMAND} -E make_directory "${GENFILES_DIRECTORY}/data"
-    COMMAND EXPORT_PATH=${INTERMEDIATE_FILE} ${BLENDER_PATH}
-            ${INPUT_FILE} --background --python assets/export.py
-    COMMAND cat ${INTERMEDIATE_FILE} | bin/protoc --proto_path=src
-            --encode=mobius.proto.world src/mobius.proto > ${OUTPUT_FILE}
-    DEPENDS ${INPUT_FILE} assets/export.py VERBATIM)
-endforeach()
-
+# Shader-generated source files.
 set(MOBIUS_SHADER_OUTPUTS "")
 foreach(SHADER_FILE ${MOBIUS_SHADER_FILES})
-  set(INPUT_FILE "src/${SHADER_FILE}")
+  set(INPUT_FILE "${CMAKE_SOURCE_DIR}/src/${SHADER_FILE}")
   set(INTERMEDIATE_FILE "gen/${SHADER_FILE}")
   set(OUTPUT_FILE "${GENFILES_DIRECTORY}/${SHADER_FILE}.h")
   list(APPEND MOBIUS_SHADER_OUTPUTS ${OUTPUT_FILE})
@@ -91,14 +49,55 @@ foreach(SHADER_FILE ${MOBIUS_SHADER_FILES})
     DEPENDS ${INPUT_FILE} ${MOBIUS_SHADER_INCLUDE_FILES} VERBATIM)
 endforeach()
 
+# Proto-generated source files.
+set(MOBIUS_PROTO_PATH "${CMAKE_SOURCE_DIR}/src")
+set(MOBIUS_PROTO "${MOBIUS_PROTO_PATH}/mobius.proto")
+set(MOBIUS_PROTO_OUTPUTS
+  "${GENFILES_DIRECTORY}/mobius.pb.cc"
+  "${GENFILES_DIRECTORY}/mobius.pb.h")
+add_custom_command(
+  OUTPUT ${MOBIUS_PROTO_OUTPUTS}
+  COMMAND ${CMAKE_COMMAND} -E make_directory ${GENFILES_DIRECTORY}
+  COMMAND protoc ${MOBIUS_PROTO}
+  --proto_path=${MOBIUS_PROTO_PATH} --cpp_out=${GENFILES_DIRECTORY} VERBATIM)
+
+# Proto-generated data files.
+set(MOBIUS_DATA_OUTPUTS "")
+function(proto_data INPUT OUTPUT MESSAGE_TYPE)
+  list(APPEND MOBIUS_DATA_OUTPUTS ${OUTPUT})
+  add_custom_command(
+    OUTPUT ${OUTPUT}
+    COMMAND ${CMAKE_COMMAND} -E make_directory "${GENFILES_DIRECTORY}/data"
+    COMMAND cat ${INPUT} | bin/protoc
+            --proto_path=${MOBIUS_PROTO_PATH}
+            --encode=mobius.proto.${MESSAGE_TYPE} ${MOBIUS_PROTO} > ${OUTPUT}
+    DEPENDS protoc ${INPUT} ${MOBIUS_PROTO} VERBATIM)
+endfunction()
+
+proto_data("${CMAKE_SOURCE_DIR}/src/data/demo.world.pb"
+           "${GENFILES_DIRECTORY}/data/demo.world.pb" world)
+proto_data("${CMAKE_SOURCE_DIR}/src/data/player.mesh.pb"
+           "${GENFILES_DIRECTORY}/data/player.mesh.pb" mesh)
+
+# Blender-generated data files.
+set(BLEND_EXPORT_SCRIPT "${CMAKE_SOURCE_DIR}/assets/export.py")
+foreach(BLEND_FILE ${MOBIUS_BLEND_FILES})
+  string(REGEX REPLACE "\\.[^.]*$" "" BARENAME ${BLEND_FILE})
+  set(INPUT_FILE "${CMAKE_SOURCE_DIR}/assets/${BLEND_FILE}")
+  set(INTERMEDIATE_FILE "${GENFILES_DIRECTORY}/${BLEND_FILE}.pb")
+  set(OUTPUT_FILE "${GENFILES_DIRECTORY}/data/${BARENAME}.pb")
+  add_custom_command(
+    OUTPUT ${INTERMEDIATE_FILE}
+    COMMAND ${CMAKE_COMMAND} -E make_directory ${GENFILES_DIRECTORY}
+    COMMAND EXPORT_PATH=${INTERMEDIATE_FILE} ${BLENDER_PATH}
+            ${INPUT_FILE} --background --python ${BLEND_EXPORT_SCRIPT})
+  proto_data(${INTERMEDIATE_FILE} ${OUTPUT_FILE} world)
+endforeach()
+
 find_package(GLEW REQUIRED)
-add_executable(
-  mobius
-  ${MOBIUS_SOURCE_FILES}
-  ${MOBIUS_TOOL_OUTPUTS}
-  ${MOBIUS_PROTO_OUTPUTS}
-  ${MOBIUS_SHADER_OUTPUTS}
-  ${MOBIUS_DATA_OUTPUTS})
+add_executable(mobius
+  ${MOBIUS_SOURCE_FILES} ${MOBIUS_TOOL_OUTPUTS} ${MOBIUS_PROTO_OUTPUTS}
+  ${MOBIUS_SHADER_OUTPUTS} ${MOBIUS_DATA_OUTPUTS})
 add_dependencies(mobius mobius_data)
 target_link_libraries(
   mobius ${GLEW_LIBRARIES}
