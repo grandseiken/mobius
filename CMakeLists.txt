@@ -94,14 +94,13 @@ foreach(BLEND_FILE ${MOBIUS_BLEND_FILES})
   proto_data(${INTERMEDIATE_FILE} ${OUTPUT_FILE} world)
 endforeach()
 
-find_package(GLEW REQUIRED)
 add_executable(mobius
   ${MOBIUS_SOURCE_FILES} ${MOBIUS_TOOL_OUTPUTS} ${MOBIUS_PROTO_OUTPUTS}
   ${MOBIUS_SHADER_OUTPUTS} ${MOBIUS_DATA_OUTPUTS})
-add_dependencies(mobius mobius_data)
 target_link_libraries(
-  mobius ${GLEW_LIBRARIES}
-  libprotobuf sfml-audio sfml-graphics sfml-window sfml-system)
+  mobius libprotobuf libglew_static
+  sfml-audio sfml-graphics sfml-window sfml-system)
 target_include_directories(
   mobius PRIVATE SYSTEM ${GENFILES_DIRECTORY}
-  dependencies/glm dependencies/protobuf/src dependencies/sfml/include)
+  dependencies/glm dependencies/protobuf/src
+  dependencies/glew-cmake/include dependencies/sfml/include)
