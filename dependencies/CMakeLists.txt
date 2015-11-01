@@ -5,7 +5,8 @@ else()
 endif()
 
 # Protobuf.
-set(BUILD_TESTING OFF CACHE BOOL "")
+set(protobuf_BUILD_TESTS OFF CACHE BOOL "")
+set(protobuf_MSVC_STATIC_RUNTIME OFF CACHE BOOL "")
 add_subdirectory(protobuf/cmake EXCLUDE_FROM_ALL)
 
 # GLEW.

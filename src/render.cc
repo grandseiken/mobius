@@ -290,12 +290,12 @@ void Renderer::draw(const Mesh& mesh, const Player& player,
       add_outline(b0, outline);
       add_outline(b1, outline);
 
-      outline_indices.push_back(0 + vertex_count);
-      outline_indices.push_back(1 + vertex_count);
-      outline_indices.push_back(2 + vertex_count);
-      outline_indices.push_back(1 + vertex_count);
-      outline_indices.push_back(3 + vertex_count);
-      outline_indices.push_back(2 + vertex_count);
+      outline_indices.push_back(GLushort(0 + vertex_count));
+      outline_indices.push_back(GLushort(1 + vertex_count));
+      outline_indices.push_back(GLushort(2 + vertex_count));
+      outline_indices.push_back(GLushort(1 + vertex_count));
+      outline_indices.push_back(GLushort(3 + vertex_count));
+      outline_indices.push_back(GLushort(2 + vertex_count));
       vertex_count += 4;
     }
   }

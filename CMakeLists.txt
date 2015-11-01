@@ -1,5 +1,12 @@
 cmake_minimum_required(VERSION 2.6)
 project(mobius)
+if(MSVC)
+  set(CPREPROCESSOR_FLAG /EP)
+  add_definitions(/W3 /WX /wd4244 -D_SCL_SECURE_NO_WARNINGS)
+else()
+  set(CPREPROCESSOR_FLAG -E)
+  add_definitions(-Wall -Wextra -Werror -pedantic)
+endif()
 
 # Set output directories.
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib")
@@ -8,14 +15,6 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin")
 set(GENFILES_DIRECTORY "${CMAKE_BINARY_DIR}/gen")
 # Add dependencies.
 add_subdirectory(dependencies)
-
-if(MSVC)
-  set(CPREPROCESSOR_FLAG /EP)
-  add_definitions(/W3 /WX /wd4244 -D_SCL_SECURE_NO_WARNINGS)
-else()
-  set(CPREPROCESSOR_FLAG -E)
-  add_definitions(-Wall -Wextra -Werror -pedantic)
-endif()
 
 set(BLENDER_PATH blender CACHE STRING
     "Path to blender for exporting assets")

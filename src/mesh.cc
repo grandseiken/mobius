@@ -133,9 +133,9 @@ void Mesh::generate_data(std::vector<float>& visible_vertices,
       add_visible_vertex_data(vb, normal);
       add_visible_vertex_data(vc, normal);
 
-      visible_indices.push_back(visible_indices.size());
-      visible_indices.push_back(visible_indices.size());
-      visible_indices.push_back(visible_indices.size());
+      visible_indices.push_back(GLushort(visible_indices.size()));
+      visible_indices.push_back(GLushort(visible_indices.size()));
+      visible_indices.push_back(GLushort(visible_indices.size()));
     }
     if (flags & mobius::proto::submesh::PHYSICAL) {
       _physical_faces.push_back({va, vb, vc});
