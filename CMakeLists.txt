@@ -77,13 +77,13 @@ add_custom_command(
 # Proto-generated data files.
 set(MOBIUS_DATA_OUTPUTS "")
 function(proto_data INPUT OUTPUT MESSAGE_TYPE)
-  list(APPEND MOBIUS_DATA_OUTPUTS ${OUTPUT})
+  set(MOBIUS_DATA_OUTPUTS ${MOBIUS_DATA_OUTPUTS} ${OUTPUT} PARENT_SCOPE)
   add_custom_command(
     OUTPUT ${OUTPUT}
     COMMAND ${CMAKE_COMMAND} -E make_directory "${GENFILES_DIRECTORY}/data"
-    COMMAND cat ${INPUT} | bin/protoc
-            --proto_path=${MOBIUS_PROTO_PATH}
-            --encode=mobius.proto.${MESSAGE_TYPE} ${MOBIUS_PROTO} > ${OUTPUT}
+    COMMAND protoc --proto_path=${MOBIUS_PROTO_PATH}
+            --encode=mobius.proto.${MESSAGE_TYPE}
+            ${MOBIUS_PROTO} < ${INPUT} > ${OUTPUT}
     DEPENDS protoc ${INPUT} ${MOBIUS_PROTO} VERBATIM)
 endfunction()
 
@@ -102,8 +102,8 @@ foreach(BLEND_FILE ${MOBIUS_BLEND_FILES})
   add_custom_command(
     OUTPUT ${INTERMEDIATE_FILE}
     COMMAND ${CMAKE_COMMAND} -E make_directory ${GENFILES_DIRECTORY}
-    COMMAND EXPORT_PATH=${INTERMEDIATE_FILE} ${BLENDER_PATH}
-            ${INPUT_FILE} --background --python ${BLEND_EXPORT_SCRIPT})
+    COMMAND ${BLENDER_PATH} ${INPUT_FILE} --background
+            --python ${BLEND_EXPORT_SCRIPT} -- ${INTERMEDIATE_FILE})
   proto_data(${INTERMEDIATE_FILE} ${OUTPUT_FILE} world)
 endforeach()
 

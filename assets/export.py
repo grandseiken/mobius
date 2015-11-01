@@ -1,7 +1,7 @@
 # Exports blender file to mobius world file.
 import bpy
 import math
-import os
+import sys
 
 # Should be kept consistent with the definitions in mobius.proto.
 PHYSICAL = 1
@@ -225,6 +225,7 @@ for scene in bpy.data.scenes:
   print("exporting chunk '%s'" % scene.name)
   world.chunk.append(export_chunk(scene))
 
+export_file = sys.argv[1 + sys.argv.index("--")]
 output = write_proto(world)
-with open(os.environ["EXPORT_PATH"], "w") as f:
+with open(export_file, "w") as f:
   f.write(output)
