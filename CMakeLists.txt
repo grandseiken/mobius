@@ -110,7 +110,7 @@ endforeach()
 add_executable(mobius
   ${MOBIUS_SOURCE_FILES} ${MOBIUS_TOOL_OUTPUTS} ${MOBIUS_PROTO_OUTPUTS}
   ${MOBIUS_SHADER_OUTPUTS} ${MOBIUS_DATA_OUTPUTS})
-target_compile_definitions(mobius PRIVATE -DSFML_STATIC)
+target_compile_definitions(mobius PRIVATE -DSFML_STATIC -DGLEW_STATIC)
 target_link_libraries(
   mobius libprotobuf libglew_static
   sfml-audio sfml-graphics sfml-window sfml-system)
