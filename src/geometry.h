@@ -7,7 +7,7 @@
 
 inline glm::vec3 side_direction(const glm::vec3& dir)
 {
-  return glm::normalize(glm::cross(dir, {0, 1, 0}));
+  return glm::normalize(glm::cross(dir, glm::vec3{0, 1, 0}));
 }
 
 inline glm::vec3 up_direction(const glm::vec3& dir)
@@ -17,7 +17,7 @@ inline glm::vec3 up_direction(const glm::vec3& dir)
 
 inline glm::vec3 forward_direction(const glm::vec3& dir)
 {
-  return glm::normalize(glm::cross({0, 1, 0}, side_direction(dir)));
+  return glm::normalize(glm::cross(glm::vec3{0, 1, 0}, side_direction(dir)));
 }
 
 inline glm::vec2 view_plane_coords(

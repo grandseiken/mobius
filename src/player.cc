@@ -3,6 +3,7 @@
 #include "geometry.h"
 #include <glm/gtc/constants.hpp>
 #include <glm/gtc/matrix_transform.hpp>
+#include <algorithm>
 
 Player::Player(const Collision& collision, const glm::vec3& position,
                float fov, float z_near, float z_far)

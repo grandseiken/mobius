@@ -127,8 +127,8 @@ calculate_bounding_frustum(const Player& player, float aspect_ratio,
     }
   }
 
-  min = glm::max(min, {-max_x, -max_y});
-  max = glm::min(max, {max_x, max_y});
+  min = glm::max(min, glm::vec2{-max_x, -max_y});
+  max = glm::min(max, glm::vec2{max_x, max_y});
 
   auto bl = eye + dir + min.x * side + min.y * up;
   auto br = eye + dir + max.x * side + min.y * up;

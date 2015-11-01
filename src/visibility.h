@@ -7,8 +7,8 @@
 #include <vector>
 
 class Player;
-class Portal;
 class Mesh;
+struct Portal;
 typedef std::pair<glm::vec3, glm::vec3> Plane;
 
 std::vector<Plane>

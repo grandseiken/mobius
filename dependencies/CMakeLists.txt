@@ -1,3 +1,9 @@
+if(MSVC)
+  add_definitions(/W0)
+else()
+  add_definitions(-w)
+endif()
+
 # Protobuf.
 set(BUILD_TESTING OFF CACHE BOOL "")
 add_subdirectory(protobuf/cmake EXCLUDE_FROM_ALL)

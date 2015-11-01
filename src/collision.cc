@@ -4,6 +4,7 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/packing.hpp>
 #include <glm/gtx/norm.hpp>
+#include <algorithm>
 
 namespace {
   Triangle object_triangle(const Triangle& t, const glm::mat4& transform)

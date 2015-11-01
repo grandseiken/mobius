@@ -1,4 +1,6 @@
 cmake_minimum_required(VERSION 2.6)
+project(mobius)
+
 # Set output directories.
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib")
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib")
@@ -6,6 +8,14 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin")
 set(GENFILES_DIRECTORY "${CMAKE_BINARY_DIR}/gen")
 # Add dependencies.
 add_subdirectory(dependencies)
+
+if(MSVC)
+  set(CPREPROCESSOR_FLAG /EP)
+  add_definitions(/W3 /WX /wd4244 -D_SCL_SECURE_NO_WARNINGS)
+else()
+  set(CPREPROCESSOR_FLAG -E)
+  add_definitions(-Wall -Wextra -Werror -pedantic)
+endif()
 
 set(BLENDER_PATH blender CACHE STRING
     "Path to blender for exporting assets")
@@ -22,6 +32,9 @@ file(GLOB MOBIUS_SOURCE_FILES
      RELATIVE ${CMAKE_SOURCE_DIR} "src/*.cc" "src/*.h")
 file(GLOB MOBIUS_BLEND_FILES
      RELATIVE "${CMAKE_SOURCE_DIR}/assets" "assets/*.world.blend")
+
+# Embed tool.
+add_executable(embed EXCLUDE_FROM_ALL src/tools/embed.cc)
 
 # Tool-generated source files.
 set(MOBIUS_TOOL_OUTPUTS "${GENFILES_DIRECTORY}/tools/simplex_lut.h")
@@ -43,10 +56,11 @@ foreach(SHADER_FILE ${MOBIUS_SHADER_FILES})
   add_custom_command(
     OUTPUT ${OUTPUT_FILE}
     COMMAND ${CMAKE_COMMAND} -E make_directory "${GENFILES_DIRECTORY}/shaders"
-    COMMAND echo "#version 330\\n" > ${INTERMEDIATE_FILE}
-    COMMAND cpp ${INPUT_FILE} >> ${INTERMEDIATE_FILE}
-    COMMAND xxd -i ${INTERMEDIATE_FILE} > ${OUTPUT_FILE}
-    DEPENDS ${INPUT_FILE} ${MOBIUS_SHADER_INCLUDE_FILES} VERBATIM)
+    COMMAND ${CMAKE_COMMAND} -E echo "#version 330" > ${INTERMEDIATE_FILE}
+    COMMAND ${CMAKE_C_COMPILER} ${CPREPROCESSOR_FLAG}
+            ${INPUT_FILE} >> ${INTERMEDIATE_FILE}
+    COMMAND embed ${INTERMEDIATE_FILE} ${OUTPUT_FILE}
+    DEPENDS embed ${INPUT_FILE} ${MOBIUS_SHADER_INCLUDE_FILES} VERBATIM)
 endforeach()
 
 # Proto-generated source files.

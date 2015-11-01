@@ -26,7 +26,7 @@ int main() {
       ay = .5 + ay / (len * 2);
       h = .5 + h / (len * 2);
 
-      std::cout << "  " << ax << ", " << ay << ", " << h << ",\n";
+      std::cout << "  float(" << ax << "), float(" << ay << "), float(" << h << "),\n";
     }
   }
   for (int i = 0; i < gradient_texture_size - 49; ++i) {

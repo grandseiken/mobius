@@ -16,8 +16,8 @@ struct ControlData {
   glm::vec2 mouse_move;
 };
 
+struct Object;
 class Collision;
-class Object;
 class Player {
 public:
   Player(const Collision& collision, const glm::vec3& position,
