@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 2.6)
 project(mobius)
 if(MSVC)
   set(CPREPROCESSOR_FLAG /EP)
-  add_definitions(/W3 /WX /wd4244 -D_SCL_SECURE_NO_WARNINGS)
+  add_definitions(/W3 /WX /wd4244 /wd4267 -D_SCL_SECURE_NO_WARNINGS)
 else()
   set(CPREPROCESSOR_FLAG -E)
   add_definitions(-Wall -Wextra -Werror -pedantic)
@@ -110,6 +110,7 @@ endforeach()
 add_executable(mobius
   ${MOBIUS_SOURCE_FILES} ${MOBIUS_TOOL_OUTPUTS} ${MOBIUS_PROTO_OUTPUTS}
   ${MOBIUS_SHADER_OUTPUTS} ${MOBIUS_DATA_OUTPUTS})
+target_compile_definitions(mobius PRIVATE -DSFML_STATIC)
 target_link_libraries(
   mobius libprotobuf libglew_static
   sfml-audio sfml-graphics sfml-window sfml-system)
