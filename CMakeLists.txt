@@ -3,10 +3,10 @@ project(mobius)
 
 # Enable (fairly) strict warnings.
 if(MSVC)
-  set(CPREPROCESSOR_FLAG /EP)
+  set(CPREPROCESSOR ${CMAKE_C_COMPILER} /EP)
   add_definitions(/W3 /WX /wd4244 /wd4267 -D_SCL_SECURE_NO_WARNINGS)
 else()
-  set(CPREPROCESSOR_FLAG -E)
+  set(CPREPROCESSOR ${CMAKE_C_COMPILER} -E -P -x c)
   add_definitions(-Wall -Wextra -Werror -pedantic)
 endif()
 
@@ -58,8 +58,7 @@ foreach(SHADER_FILE ${MOBIUS_SHADER_FILES})
     OUTPUT ${OUTPUT_FILE}
     COMMAND ${CMAKE_COMMAND} -E make_directory "${GENFILES_DIRECTORY}/shaders"
     COMMAND ${CMAKE_COMMAND} -E echo "#version 330" > ${INTERMEDIATE_FILE}
-    COMMAND ${CMAKE_C_COMPILER} ${CPREPROCESSOR_FLAG}
-            ${INPUT_FILE} >> ${INTERMEDIATE_FILE}
+    COMMAND ${CPREPROCESSOR} ${INPUT_FILE} >> ${INTERMEDIATE_FILE}
     COMMAND embed ${INTERMEDIATE_FILE} ${OUTPUT_FILE}
     DEPENDS embed ${INPUT_FILE} ${MOBIUS_SHADER_INCLUDE_FILES} VERBATIM)
 endforeach()
