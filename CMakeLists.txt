@@ -1,5 +1,7 @@
 cmake_minimum_required(VERSION 2.6)
 project(mobius)
+
+# Enable (fairly) strict warnings.
 if(MSVC)
   set(CPREPROCESSOR_FLAG /EP)
   add_definitions(/W3 /WX /wd4244 /wd4267 -D_SCL_SECURE_NO_WARNINGS)
@@ -112,9 +114,9 @@ add_executable(mobius
   ${MOBIUS_SHADER_OUTPUTS} ${MOBIUS_DATA_OUTPUTS})
 target_compile_definitions(mobius PRIVATE -DSFML_STATIC -DGLEW_STATIC)
 target_link_libraries(
-  mobius libprotobuf libglew_static
+  mobius PRIVATE libprotobuf libglew_static
   sfml-audio sfml-graphics sfml-window sfml-system)
 target_include_directories(
-  mobius PRIVATE SYSTEM ${GENFILES_DIRECTORY}
+  mobius SYSTEM PRIVATE ${GENFILES_DIRECTORY}
   dependencies/glm dependencies/protobuf/src
   dependencies/glew-cmake/include dependencies/sfml/include)
